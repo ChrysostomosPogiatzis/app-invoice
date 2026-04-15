@@ -134,7 +134,9 @@ class SettingsController extends Controller
         $tokenName = $request->input('token_name');
         $token = $request->user()->createToken($tokenName);
 
-        return back()->with('success', 'Token generated successfully! Write down your secret key: ' . $token->plainTextToken);
+        return back()
+            ->with('success', 'Token generated successfully!')
+            ->with('flash', ['plain_text_token' => $token->plainTextToken]);
     }
 
     /**
