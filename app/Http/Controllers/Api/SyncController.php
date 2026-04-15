@@ -101,7 +101,7 @@ class SyncController extends Controller
                 'logs.*.phone' => 'required|string',
                 'logs.*.type' => 'nullable|string',
                 'logs.*.duration' => 'nullable|integer',
-                'logs.*.date' => 'required|date',
+                'logs.*.date' => 'required', // Removed strict |date rule so UNIX timestamps pass validation
                 'logs.*.notes' => 'nullable|string',
             ]);
 
