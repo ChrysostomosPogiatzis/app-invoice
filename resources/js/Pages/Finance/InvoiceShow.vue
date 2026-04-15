@@ -8,6 +8,7 @@ const props = defineProps<{
 }>();
 
 const showPaymentForm = ref(false);
+const showShareSettings = ref(false);
 const emailing = ref(false);
 
 const emailInvoice = () => {
@@ -63,6 +64,13 @@ const publicUrl = props.invoice.public_shares?.[0]?.share_token
     ? route('public.invoice.show', props.invoice.public_shares[0].share_token) 
     : null;
 
+const shareForm = useForm({
+    password: '',
+    expires_at: props.invoice.public_shares?.[0]?.expires_at
+        ? new Date(props.invoice.public_shares[0].expires_at).toISOString().slice(0, 16)
+        : '',
+});
+
 const formatDate = (date: string) => date ? new Date(date).toLocaleDateString('en-GB') : '—';
 
 const grossUnitPrice = (item: any) => {
@@ -83,6 +91,20 @@ const copyLink = () => {
         navigator.clipboard.writeText(publicUrl);
         alert('Sharing link copied to clipboard!');
     }
+};
+
+const saveShareSettings = () => {
+    shareForm.transform((data) => ({
+        ...data,
+        expires_at: data.expires_at || null,
+        password: data.password || null,
+    })).put(route('invoices.share.update', props.invoice.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            shareForm.reset('password');
+            showShareSettings.value = false;
+        }
+    });
 };
 
 const voidInvoice = () => {
@@ -128,6 +150,9 @@ const createCreditNote = () => {
                     <button v-if="publicUrl" @click="copyLink" class="bg-indigo-50 text-indigo-700 border border-indigo-100 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-indigo-100 transition-colors">
                         Copy Share Link
                     </button>
+                    <button @click="showShareSettings = !showShareSettings" class="bg-white text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-indigo-50 transition-colors">
+                        {{ showShareSettings ? 'Close Share' : 'Share Settings' }}
+                    </button>
                     <button v-if="invoice.status !== 'void'" @click="voidInvoice" class="bg-white text-rose-600 border border-rose-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-rose-50 transition-colors shadow-sm flex items-center gap-2">
                          Void Document
                     </button>
@@ -139,6 +164,49 @@ const createCreditNote = () => {
         </template>
 
         <div class="max-w-5xl mx-auto space-y-6">
+            <div v-if="showShareSettings" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+                <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900">Share Settings</h3>
+                        <p class="text-sm text-slate-500 mt-1">Protect the public invoice link with a password and optional expiry.</p>
+                        <p v-if="publicUrl" class="text-xs text-slate-400 mt-3 break-all">{{ publicUrl }}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span v-if="invoice.public_shares?.[0]?.has_password" class="px-3 py-1 rounded-full bg-amber-50 border border-amber-100 text-[10px] font-bold uppercase tracking-wider text-amber-700">Password Protected</span>
+                        <span v-if="invoice.public_shares?.[0]?.expires_at" class="px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-600">Expires {{ formatDate(invoice.public_shares[0].expires_at) }}</span>
+                    </div>
+                </div>
+
+                <form @submit.prevent="saveShareSettings" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
+                        <input
+                            v-model="shareForm.password"
+                            type="password"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-4 focus:ring-2 focus:ring-indigo-500/20 outline-none font-medium text-sm"
+                            placeholder="Leave blank to remove password"
+                        />
+                        <p class="text-[11px] text-slate-400 mt-2">Enter a new password to replace the current one, or leave blank to make the link password-free.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Expires At</label>
+                        <input
+                            v-model="shareForm.expires_at"
+                            type="datetime-local"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-4 focus:ring-2 focus:ring-indigo-500/20 outline-none font-medium text-sm"
+                        />
+                        <p class="text-[11px] text-slate-400 mt-2">Leave empty to keep the share link active until you change it.</p>
+                    </div>
+
+                    <div class="md:col-span-2 flex justify-end">
+                        <button type="submit" :disabled="shareForm.processing" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                            Save Share Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+
             <!-- Payment Form -->
             <div v-if="showPaymentForm" class="bg-white rounded-xl border border-slate-200 p-8 shadow-lg animate-in slide-in-from-top-2 duration-300">
                 <div class="flex justify-between items-center mb-6">
@@ -286,7 +354,7 @@ const createCreditNote = () => {
                                 <div v-if="invoice.attachments?.length">
                                     <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Digital Audit Trace</h4>
                                     <div class="flex gap-2">
-                                        <a v-for="a in invoice.attachments" :key="a.id" :href="a.file_url" target="_blank" class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all text-slate-400">
+                                        <a v-for="a in invoice.attachments" :key="a.id" :href="a.download_url" target="_blank" class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all text-slate-400">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.414a4 4 0 00-5.656-5.656l-6.415 6.414a6 6 0 108.486 8.486L20.5 13" stroke-width="2" stroke-linecap="round"></path></svg>
                                         </a>
                                     </div>

@@ -29,7 +29,7 @@ class CheckTrialExpiration
         if ($isInactive || $isExpired) {
             // Allow access to the settings so they can upgrade
             // Or allow admins to still manage the workspace
-            $allowedRoutes = ['settings.edit', 'settings.update', 'admin.*', 'logout', 'billing.checkout', 'workspaces.switch'];
+            $allowedRoutes = ['settings.edit', 'settings.update', 'admin.*', 'logout', 'billing.checkout', 'billing.success', 'billing.cancel', 'workspaces.switch'];
             
             if (!$request->routeIs($allowedRoutes)) {
                 $errorMsg = $isInactive 

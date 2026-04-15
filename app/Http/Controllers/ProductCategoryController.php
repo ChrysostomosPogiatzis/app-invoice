@@ -2,19 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesWorkspace;
 use App\Models\ProductCategory;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class ProductCategoryController extends Controller
 {
+    use ResolvesWorkspace;
+
     public function store(Request $request)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
         ]);
 
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
 
         $category = ProductCategory::create([
             'workspace_id' => $workspaceId,

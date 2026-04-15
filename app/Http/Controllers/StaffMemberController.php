@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\StaffDocument;
-use App\Models\StaffLeaveRequest;
+use App\Http\Controllers\Concerns\ResolvesStoredFile;
+use App\Http\Controllers\Concerns\ResolvesWorkspace;
 use App\Models\StaffMember;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class StaffMemberController extends Controller
 {
+    use ResolvesWorkspace, ResolvesStoredFile;
+
     public function index()
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $staff = StaffMember::where('workspace_id', $workspaceId)->get();
 
         return Inertia::render('Finance/Staff/Index', [
@@ -24,12 +25,19 @@ class StaffMemberController extends Controller
 
     public function show($id)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $staff = StaffMember::where('workspace_id', $workspaceId)
             ->with(['documents', 'leaveRequests', 'expenses' => function($q) {
                 $q->where('is_payroll', true)->orderBy('expense_date', 'desc');
             }])
             ->findOrFail($id);
+
+        $staff->documents->each(function ($document) use ($staff) {
+            $document->download_url = route('staff-members.documents.download', [
+                'staffId' => $staff->id,
+                'docId' => $document->id,
+            ]);
+        });
 
         return Inertia::render('Finance/Staff/Show', [
             'member' => $staff
@@ -38,7 +46,7 @@ class StaffMemberController extends Controller
 
     public function store(Request $request)
     {
-        $workspace = Auth::user()->workspaces()->first();
+        $workspace = $this->currentWorkspace();
         if (!$workspace) {
             return back()->with('error', 'No active workspace found.');
         }
@@ -79,7 +87,7 @@ class StaffMemberController extends Controller
 
     public function update(Request $request, $id)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $staff = StaffMember::where('workspace_id', $workspaceId)->findOrFail($id);
 
         $validated = $request->validate([
@@ -112,7 +120,7 @@ class StaffMemberController extends Controller
 
     public function destroy($id)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $staff = StaffMember::where('workspace_id', $workspaceId)->findOrFail($id);
         $staff->delete();
 
@@ -121,21 +129,21 @@ class StaffMemberController extends Controller
 
     public function uploadDocument(Request $request, $id)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $staff = StaffMember::where('workspace_id', $workspaceId)->findOrFail($id);
 
         $request->validate([
-            'document_file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'document_file' => 'required|file|mimes:pdf,jpg,jpeg,png|mimetypes:application/pdf,image/jpeg,image/png|max:10240',
             'name' => 'required|string|max:255',
             'type' => 'nullable|string|max:100',
         ]);
 
-        $path = $request->file('document_file')->store('staff_documents', 'public');
+        $path = $request->file('document_file')->store('staff_documents', 'local');
 
         $staff->documents()->create([
             'name' => $request->name,
             'type' => $request->type ?? 'General',
-            'file_path' => '/storage/' . $path,
+            'file_path' => $path,
             'size_bytes' => $request->file('document_file')->getSize(),
             'mime_type' => $request->file('document_file')->getMimeType(),
         ]);
@@ -145,7 +153,7 @@ class StaffMemberController extends Controller
 
     public function storeLeave(Request $request, $id)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $staff = StaffMember::where('workspace_id', $workspaceId)->findOrFail($id);
 
         $request->validate([
@@ -175,7 +183,7 @@ class StaffMemberController extends Controller
 
     public function approveLeave($staffId, $leaveId)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $staff = StaffMember::where('workspace_id', $workspaceId)->findOrFail($staffId);
         $leave = \App\Models\StaffLeaveRequest::where('staff_member_id', $staff->id)->findOrFail($leaveId);
 
@@ -194,7 +202,7 @@ class StaffMemberController extends Controller
 
     public function rejectLeave($staffId, $leaveId)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $staff = StaffMember::where('workspace_id', $workspaceId)->findOrFail($staffId);
         $leave = \App\Models\StaffLeaveRequest::where('staff_member_id', $staff->id)->findOrFail($leaveId);
 
@@ -209,14 +217,28 @@ class StaffMemberController extends Controller
 
     public function destroyDocument($staffId, $docId)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $staff = StaffMember::where('workspace_id', $workspaceId)->findOrFail($staffId);
         $doc = \App\Models\StaffDocument::where('staff_member_id', $staff->id)->findOrFail($docId);
 
-        $relativePath = str_replace('/storage/', '', $doc->file_path);
-        \Illuminate\Support\Facades\Storage::disk('public')->delete($relativePath);
+        $disk = $this->storedFileDisk($doc->file_path);
+        $relativePath = $this->normalizeStoredPath($doc->file_path);
+        if ($disk && $relativePath) {
+            Storage::disk($disk)->delete($relativePath);
+        }
         $doc->delete();
 
         return back()->with('success', 'Document deleted.');
+    }
+
+    public function downloadDocument($staffId, $docId)
+    {
+        $staff = StaffMember::where('workspace_id', $this->currentWorkspaceId())->findOrFail($staffId);
+        $doc = \App\Models\StaffDocument::where('staff_member_id', $staff->id)->findOrFail($docId);
+        $fullPath = $this->storedFileAbsolutePath($doc->file_path);
+
+        abort_unless($fullPath && file_exists($fullPath), 404, 'Document file not found.');
+
+        return response()->download($fullPath, $doc->name);
     }
 }

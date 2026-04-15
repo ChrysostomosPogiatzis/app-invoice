@@ -192,7 +192,7 @@ const getCategoryStyle = (cat: string) => {
                                         <div class="text-sm font-semibold text-slate-900 truncate">{{ exp.vendor_name || 'Unspecified' }}</div>
                                         <div v-if="exp.notes" class="text-[11px] text-slate-400 truncate max-w-[200px]">{{ exp.notes }}</div>
                                     </div>
-                                    <a v-if="exp.receipt_url" :href="exp.receipt_url" target="_blank" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-[10px] font-bold uppercase tracking-wider group" title="View Receipt">
+                                    <a v-if="exp.receipt_download_url" :href="exp.receipt_download_url" target="_blank" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-[10px] font-bold uppercase tracking-wider group" title="View Receipt">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.414a4 4 0 00-5.656-5.656l-6.415 6.414a6 6 0 108.486 8.486L20.5 13" stroke-width="2" stroke-linecap="round"></path></svg>
                                         <span>View Receipt</span>
                                     </a>

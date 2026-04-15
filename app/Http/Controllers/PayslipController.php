@@ -2,23 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesWorkspace;
 use App\Models\Expense;
-use App\Models\StaffMember;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Facades\Auth;
 
 class PayslipController extends Controller
 {
+    use ResolvesWorkspace;
+
     public function download($expenseId)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $expense = Expense::where('workspace_id', $workspaceId)
             ->where('is_payroll', true)
             ->findOrFail($expenseId);
 
         $staff = $expense->staffMember;
-        $workspace = Auth::user()->workspaces()->first();
+        $workspace = $this->currentWorkspace();
 
         $pdf = Pdf::loadView('pdf.payslip', [
             'expense' => $expense,

@@ -20,7 +20,7 @@ use App\Http\Controllers\Api\ReminderController;
 |
 */
 
-Route::post('/login', [App\Http\Controllers\Api\AuthController::class, 'login']);
+Route::post('/login', [App\Http\Controllers\Api\AuthController::class, 'login'])->middleware('throttle:5,1');
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [App\Http\Controllers\Api\AuthController::class, 'logout']);
@@ -34,7 +34,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     // Resource endpoints for mobile app / external
-    Route::name('api.')->group(function() {
+    Route::middleware('throttle:60,1')->name('api.')->group(function() {
         // Contacts
         Route::get('contacts/lookup', [ContactController::class, 'lookup']);
         Route::post('contacts/lookup-or-create', [ContactController::class, 'lookupOrCreate']);
@@ -55,9 +55,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('staff/{id}/leave', [\App\Http\Controllers\Api\StaffController::class, 'storeLeave']);
 
         // Financials
-        Route::get('invoices/{id}/download', [InvoiceController::class, 'download']);
+        Route::get('invoices/{id}/download', [InvoiceController::class, 'download'])->middleware('throttle:10,1');
         Route::apiResource('invoices', InvoiceController::class);
-        Route::get('quotes/{id}/download', [QuoteController::class, 'download']);
+        Route::get('quotes/{id}/download', [QuoteController::class, 'download'])->middleware('throttle:10,1');
         Route::apiResource('quotes', QuoteController::class);
         Route::apiResource('expenses', ExpenseController::class);
         Route::apiResource('reminders', ReminderController::class);
@@ -70,11 +70,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     // Bulk Synchronization
-    Route::group(['prefix' => 'sync', 'as' => 'sync.'], function () {
+    Route::group(['prefix' => 'sync', 'as' => 'sync.', 'middleware' => 'throttle:10,1'], function () {
         Route::post('/contacts', [App\Http\Controllers\Api\SyncController::class, 'syncContacts'])->name('contacts');
         Route::post('/logs', [App\Http\Controllers\Api\SyncController::class, 'syncCallLogs'])->name('logs');
     });
 
     // Banking / External Sync
-    Route::post('/banking/sync', [App\Http\Controllers\BankingController::class, 'syncNow']);
+    Route::post('/banking/sync', [App\Http\Controllers\BankingController::class, 'syncNow'])->middleware('throttle:5,1');
 });

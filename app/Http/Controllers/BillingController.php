@@ -7,6 +7,7 @@ use App\Models\SubscriptionPayment;
 use App\Services\TierService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Mypos\IPC\Config;
 use Mypos\IPC\Purchase;
@@ -92,15 +93,10 @@ class BillingController extends Controller
             
             if ($response->isNewPayment()) {
                 $data = $response->getData();
-                Log::info('myPOS Webhook Success', $data);
+                $orderId = (string) ($data['OrderID'] ?? '');
+                $workspaceId = $this->extractWorkspaceIdFromOrderId($orderId);
 
-                // Extract Workspace ID from the OrderID or Note
-                // OrderID format: REN-{id}-{timestamp}
-                $orderId = $data['OrderID'];
-                $parts = explode('-', $orderId);
-                $workspaceId = $parts[1] ?? null;
-
-                if (!$workspaceId) {
+                if (! $workspaceId) {
                     Log::error('myPOS Webhook: Could not extract Workspace ID from OrderID: ' . $orderId);
                     return response('Invalid Order ID', 400);
                 }
@@ -111,24 +107,40 @@ class BillingController extends Controller
                     return response('Workspace Not Found', 404);
                 }
 
-                // Process the Extension (30 days)
-                $currentEnd = $workspace->trial_ends_at ? Carbon::parse($workspace->trial_ends_at) : Carbon::now();
-                $newEnd = $currentEnd->isPast() ? Carbon::now()->addDays(30) : $currentEnd->addDays(30);
+                if (SubscriptionPayment::where('gateway_order_id', $orderId)->exists()) {
+                    Log::info('myPOS Webhook duplicate ignored', [
+                        'order_id' => $orderId,
+                        'workspace_id' => $workspace->id,
+                    ]);
 
-                $workspace->update([
-                    'trial_ends_at' => $newEnd,
-                    'last_billed_at' => Carbon::now(),
-                    'is_active' => true
-                ]);
+                    return response('OK');
+                }
 
-                // Record in Ledger
-                SubscriptionPayment::create([
+                DB::transaction(function () use ($workspace, $data, $orderId) {
+                    $currentEnd = $workspace->trial_ends_at ? Carbon::parse($workspace->trial_ends_at) : Carbon::now();
+                    $newEnd = $currentEnd->isPast() ? Carbon::now()->addDays(30) : $currentEnd->copy()->addDays(30);
+
+                    $workspace->update([
+                        'trial_ends_at' => $newEnd,
+                        'last_billed_at' => Carbon::now(),
+                        'is_active' => true
+                    ]);
+
+                    SubscriptionPayment::create([
+                        'workspace_id' => $workspace->id,
+                        'amount' => (float) ($data['Amount'] ?? 0),
+                        'payment_method' => 'mypos',
+                        'gateway_order_id' => $orderId,
+                        'billed_at' => Carbon::now(),
+                        'extended_until' => $newEnd,
+                        'notes' => 'Automated SDK-Verified Renewal. Order: ' . $orderId
+                    ]);
+                });
+
+                Log::info('myPOS Webhook processed', [
+                    'order_id' => $orderId,
                     'workspace_id' => $workspace->id,
-                    'amount' => (float)$data['Amount'],
-                    'payment_method' => 'mypos',
-                    'billed_at' => Carbon::now(),
-                    'extended_until' => $newEnd,
-                    'notes' => 'Automated SDK-Verified Renewal. Order: ' . $orderId
+                    'amount' => (float) ($data['Amount'] ?? 0),
                 ]);
 
                 return response('OK');
@@ -140,5 +152,14 @@ class BillingController extends Controller
             Log::error('myPOS Webhook Exception', ['msg' => $e->getMessage()]);
             return response('Error', 500);
         }
+    }
+
+    protected function extractWorkspaceIdFromOrderId(string $orderId): ?int
+    {
+        if (! preg_match('/^REN-(\d+)-(\d{10,})$/', $orderId, $matches)) {
+            return null;
+        }
+
+        return (int) $matches[1];
     }
 }

@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/shared/invoice/{token}', [PublicInvoiceController::class, 'show'])->name('public.invoice.show');
+Route::post('/shared/invoice/{token}/access', [PublicInvoiceController::class, 'authorizeAccess'])->name('public.invoice.access');
 Route::post('/shared/invoice/{token}/sign', [PublicInvoiceController::class, 'sign'])->name('public.invoice.sign');
 
 Route::get('/', function () {
@@ -111,11 +112,13 @@ Route::middleware('auth')->group(function () {
     Route::resource('invoices', InvoiceController::class);
     Route::resource('quotes', QuoteController::class);
     Route::resource('expenses', \App\Http\Controllers\ExpenseController::class);
+    Route::get('/expenses/{id}/receipt', [\App\Http\Controllers\ExpenseController::class, 'downloadReceipt'])->name('expenses.receipt.download');
     Route::resource('communications', CommunicationController::class);
 
     Route::resource('banking', BankingController::class)->except(['show']);
     Route::resource('staff-members', \App\Http\Controllers\StaffMemberController::class);
     Route::post('/staff-members/{id}/documents', [\App\Http\Controllers\StaffMemberController::class, 'uploadDocument'])->name('staff-members.documents.store');
+    Route::get('/staff-members/{staffId}/documents/{docId}/download', [\App\Http\Controllers\StaffMemberController::class, 'downloadDocument'])->name('staff-members.documents.download');
     Route::delete('/staff-members/{staffId}/documents/{docId}', [\App\Http\Controllers\StaffMemberController::class, 'destroyDocument'])->name('staff-members.documents.destroy');
     Route::post('/staff-members/{id}/leave', [\App\Http\Controllers\StaffMemberController::class, 'storeLeave'])->name('staff.leave.store');
     Route::patch('/staff-members/{staffId}/leave/{leaveId}/approve', [\App\Http\Controllers\StaffMemberController::class, 'approveLeave'])->name('staff.leave.approve');
@@ -133,6 +136,8 @@ Route::middleware('auth')->group(function () {
 
     // Invoice email
     Route::post('/invoices/{invoice}/email', [\App\Http\Controllers\InvoiceController::class, 'sendEmail'])->name('invoices.email');
+    Route::put('/invoices/{invoice}/share', [\App\Http\Controllers\InvoiceController::class, 'updateShare'])->name('invoices.share.update');
+    Route::get('/invoices/{invoice}/attachments/{attachment}', [\App\Http\Controllers\InvoiceController::class, 'downloadAttachment'])->name('invoices.attachments.download');
     Route::post('/invoices/{invoice}/void', [\App\Http\Controllers\InvoiceController::class, 'void'])->name('invoices.void');
     Route::post('/invoices/{invoice}/credit-note', [\App\Http\Controllers\InvoiceController::class, 'createCreditNote'])->name('invoices.credit-note');
 
@@ -158,19 +163,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/reminders', [\App\Http\Controllers\ReminderController::class, 'store'])->name('reminders.store');
     Route::delete('/reminders/{id}', [\App\Http\Controllers\ReminderController::class, 'destroy'])->name('reminders.destroy');
 });
-Route::get('/logout', function () {
-    auth()->logout();
-    session()->invalidate();
-    session()->regenerateToken();
-    return redirect()->route('login');
-})->name('logout.get');
-
 Route::post('/billing/webhook', [\App\Http\Controllers\BillingController::class, 'handleWebhook'])->name('billing.webhook');
 
 Route::middleware(['auth'])->group(function () {
-    Route::match(['get', 'post'], '/billing/checkout', [\App\Http\Controllers\BillingController::class, 'createCheckoutSession'])->name('billing.checkout');
-    Route::match(['get', 'post'], '/billing/success', function() { return redirect()->route('dashboard')->with('success', 'Payment successful! Your node has been reactivated.'); })->name('billing.success');
-    Route::match(['get', 'post'], '/billing/cancel', function() { return redirect()->route('settings.edit')->with('error', 'Payment was canceled.'); })->name('billing.cancel');
+    Route::post('/billing/checkout', [\App\Http\Controllers\BillingController::class, 'createCheckoutSession'])->name('billing.checkout');
+    Route::get('/billing/success', function() { return redirect()->route('dashboard')->with('success', 'Payment successful! Your node has been reactivated.'); })->name('billing.success');
+    Route::get('/billing/cancel', function() { return redirect()->route('settings.edit')->with('error', 'Payment was canceled.'); })->name('billing.cancel');
 });
 
 require __DIR__ . '/auth.php';

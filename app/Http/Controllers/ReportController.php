@@ -2,24 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesStoredFile;
+use App\Http\Controllers\Concerns\ResolvesWorkspace;
 use App\Models\Invoice;
 use App\Models\Expense;
 use App\Models\BankTransaction;
 use App\Models\Workspace;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Auth;
 use Barryvdh\DomPDF\Facade\Pdf;
 use ZipArchive;
 
 class ReportController extends Controller
 {
+    use ResolvesWorkspace, ResolvesStoredFile;
+
     /**
      * Display the reporting dashboard.
      */
     public function index()
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
 
         return Inertia::render('Reports/Index', [
             'overview' => [
@@ -35,7 +38,7 @@ class ReportController extends Controller
      */
     public function export(Request $request)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $type        = $request->query('type', 'financial');
         $fileName    = "{$type}_export_" . date('Ymd_His') . ".csv";
 
@@ -102,8 +105,8 @@ class ReportController extends Controller
             'month' => 'required|date_format:Y-m',
         ]);
 
-        $workspaceId = Auth::user()->workspaces()->first()->id;
-        $workspace   = \App\Models\Workspace::findOrFail($workspaceId);
+        $workspaceId = $this->currentWorkspaceId();
+        $workspace   = $this->currentWorkspace();
 
         [$year, $month] = explode('-', $request->month);
         $monthLabel = \Carbon\Carbon::createFromDate($year, $month, 1)->format('F Y');
@@ -146,8 +149,8 @@ class ReportController extends Controller
             'month' => 'required|date_format:Y-m',
         ]);
 
-        $workspaceId = Auth::user()->workspaces()->first()->id;
-        $workspace   = \App\Models\Workspace::findOrFail($workspaceId);
+        $workspaceId = $this->currentWorkspaceId();
+        $workspace   = $this->currentWorkspace();
 
         [$year, $month] = explode('-', $request->month);
         $monthLabel = \Carbon\Carbon::createFromDate($year, $month, 1)->format('F Y');
@@ -187,8 +190,8 @@ class ReportController extends Controller
             'month' => 'required|date_format:Y-m',
         ]);
 
-        $workspaceId = Auth::user()->workspaces()->first()->id;
-        $workspace   = \App\Models\Workspace::findOrFail($workspaceId);
+        $workspaceId = $this->currentWorkspaceId();
+        $workspace   = $this->currentWorkspace();
 
         [$year, $month] = explode('-', $request->month);
         $monthLabel = \Carbon\Carbon::createFromDate($year, $month, 1)->format('F Y');
@@ -227,8 +230,8 @@ class ReportController extends Controller
             'date_to'   => 'required|date|after_or_equal:date_from',
         ]);
  
-        $workspaceId = Auth::user()->workspaces()->first()->id;
-        $workspace   = Workspace::findOrFail($workspaceId);
+        $workspaceId = $this->currentWorkspaceId();
+        $workspace   = $this->currentWorkspace();
         $dateFrom    = $request->date_from;
         $dateTo      = $request->date_to;
  
@@ -341,9 +344,8 @@ class ReportController extends Controller
         // 4. Original Expense Receipt Files
         foreach ($expenses as $expense) {
             if ($expense->receipt_url) {
-                $path = str_replace('/storage/', '', $expense->receipt_url);
-                $fullPath = public_path('storage/' . $path);
-                if (file_exists($fullPath)) {
+                $fullPath = $this->storedFileAbsolutePath($expense->receipt_url);
+                if ($fullPath && file_exists($fullPath)) {
                     $ext = pathinfo($fullPath, PATHINFO_EXTENSION);
                     $dateLabel = \Carbon\Carbon::parse($expense->expense_date)->format('Ymd');
                     $zip->addFile($fullPath, "Expenses_Receipts/Exp_{$dateLabel}_{$expense->id}.{$ext}");

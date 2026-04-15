@@ -266,7 +266,7 @@ const getStatusColor = (status: string) => {
                     <h6 class="text-xs font-black text-slate-900 mb-1 leading-tight">{{ doc.name }}</h6>
                     <p class="text-[9px] text-slate-400 font-bold uppercase tracking-tight italic">{{ doc.type || 'Standard Document' }}</p>
                     <div class="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
-                        <a :href="doc.file_path" download class="text-indigo-600 font-black text-[9px] uppercase tracking-widest hover:text-indigo-800">Download</a>
+                        <a :href="doc.download_url" class="text-indigo-600 font-black text-[9px] uppercase tracking-widest hover:text-indigo-800">Download</a>
                         <button @click="deleteDocument(doc.id)" class="text-rose-400 hover:text-rose-600 text-[9px] font-black uppercase tracking-widest transition-colors">Delete</button>
                     </div>
                  </div>

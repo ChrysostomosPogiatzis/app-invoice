@@ -4,6 +4,7 @@ namespace App\Services\Banking;
 
 use App\Models\BankingConnection;
 use App\Models\BankTransaction;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -68,6 +69,7 @@ class EurobankService
         $tppToken = $this->getTppToken();
         $requestId = (string) Str::uuid();
         $redirectUri = route('banking.callback', ['provider' => 'eurobank']);
+        $oauthState = Str::random(40);
 
         // POST /consents
         $response = Http::withToken($tppToken)
@@ -96,7 +98,15 @@ class EurobankService
         // Store consentId for later exchange
         $creds = $this->connection->credentials;
         $creds['consent_id'] = $consentId;
+        $creds['oauth_state'] = $oauthState;
+        $creds['oauth_state_expires_at'] = now()->addMinutes(15)->toIso8601String();
         $this->connection->update(['credentials' => $creds]);
+
+        $statePayload = Crypt::encryptString(json_encode([
+            'provider' => 'eurobank',
+            'connection_id' => $this->connection->id,
+            'oauth_state' => $oauthState,
+        ]));
 
         // If scaRedirect link is provided and is a real URL, use it. 
         // Note: Eurobank Sandbox sometimes returns literal "redirectLink"
@@ -111,7 +121,7 @@ class EurobankService
             'scope'         => 'AISP',
             'redirect_uri'  => $redirectUri,
             'consent'       => $consentId,
-            'state'         => $this->connection->id,
+            'state'         => $statePayload,
         ]);
     }
 
@@ -152,6 +162,13 @@ class EurobankService
             'credentials' => $creds,
             'is_active'   => true,
         ]);
+    }
+
+    public function clearOAuthState(): void
+    {
+        $creds = $this->connection->credentials;
+        unset($creds['oauth_state'], $creds['oauth_state_expires_at']);
+        $this->connection->update(['credentials' => $creds]);
     }
 
     /**

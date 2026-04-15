@@ -12,8 +12,23 @@ class PublicShare extends Model
         'invoice_id', 'share_token', 'password', 'expires_at', 'view_count', 'last_viewed_at'
     ];
 
+    protected $casts = [
+        'expires_at' => 'datetime',
+        'last_viewed_at' => 'datetime',
+    ];
+
     public function invoice()
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    public function requiresPassword(): bool
+    {
+        return filled($this->password);
     }
 }

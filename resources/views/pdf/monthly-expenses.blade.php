@@ -247,11 +247,17 @@
                     <td class="text-center">
                         @if($expense->receipt_url)
                             @php
-                                $path = str_replace('/storage/', '', $expense->receipt_url);
-                                $fullPath = public_path('storage/' . $path);
+                                $path = ltrim(preg_replace('#^/?storage/#', '', parse_url($expense->receipt_url, PHP_URL_PATH) ?: $expense->receipt_url), '/');
+                                $localPath = \Illuminate\Support\Facades\Storage::disk('local')->exists($path)
+                                    ? \Illuminate\Support\Facades\Storage::disk('local')->path($path)
+                                    : null;
+                                $publicPath = \Illuminate\Support\Facades\Storage::disk('public')->exists($path)
+                                    ? \Illuminate\Support\Facades\Storage::disk('public')->path($path)
+                                    : null;
+                                $fullPath = $localPath ?: $publicPath;
                                 $isPdf = str_ends_with(strtolower($path), '.pdf');
                             @endphp
-                            @if(file_exists($fullPath))
+                            @if($fullPath && file_exists($fullPath))
                                 @if($isPdf)
                                      <span style="color: #4f46e5; font-size: 8px; border: 1px solid #4f46e5; padding: 2px; border-radius: 2px;">PDF Doc</span>
                                 @else

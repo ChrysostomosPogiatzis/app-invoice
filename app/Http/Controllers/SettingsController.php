@@ -60,10 +60,37 @@ class SettingsController extends Controller
             'holiday_rate' => 'nullable|numeric|min:0|max:100',
             'annual_tax_threshold' => 'nullable|numeric|min:0',
             'tax_brackets' => 'nullable|array',
+            'tax_brackets.*.threshold' => 'required_with:tax_brackets|numeric|min:0',
+            'tax_brackets.*.rate' => 'required_with:tax_brackets|numeric|min:0|max:100',
             'features' => 'nullable|array',
         ]);
 
-        $data = $request->except(['features', 'logo']);
+        if (! empty($validated['tax_brackets'])) {
+            $normalizedBrackets = collect($validated['tax_brackets'])
+                ->map(fn (array $bracket) => [
+                    'threshold' => (float) $bracket['threshold'],
+                    'rate' => (float) $bracket['rate'],
+                ])
+                ->sortBy('threshold')
+                ->values();
+
+            $hasDuplicateThresholds = $normalizedBrackets
+                ->pluck('threshold')
+                ->duplicates()
+                ->isNotEmpty();
+
+            if ($hasDuplicateThresholds) {
+                return back()->withErrors([
+                    'tax_brackets' => 'Tax bracket thresholds must be unique.',
+                ])->withInput();
+            }
+
+            $validated['tax_brackets'] = $normalizedBrackets->all();
+        }
+
+        $data = collect($validated)
+            ->except(['features', 'logo'])
+            ->toArray();
 
         if ($request->hasFile('logo')) {
             $path = $request->file('logo')->store('logos', 'public');

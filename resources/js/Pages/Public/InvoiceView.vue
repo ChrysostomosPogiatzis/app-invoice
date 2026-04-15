@@ -4,13 +4,18 @@ import { useForm, Head } from '@inertiajs/vue3';
 import SignaturePad from '@/Components/SignaturePad.vue';
 
 const props = defineProps<{
-    invoice: any,
-    token: string
+    invoice: any | null,
+    token: string,
+    requires_password: boolean,
 }>();
 
 const form = useForm({
     customer_name: '',
     signature_base64: ''
+});
+
+const accessForm = useForm({
+    password: ''
 });
 
 const isSigned = ref(false);
@@ -27,12 +32,40 @@ const submit = () => {
         }
     });
 };
+
+const unlock = () => {
+    accessForm.post(route('public.invoice.access', props.token));
+};
 </script>
 
 <template>
     <Head title="Digital Invoice - Witbo Rental" />
 
-    <div class="min-h-screen bg-gray-50 py-12 px-6 font-sans text-gray-900">
+    <div v-if="requires_password" class="min-h-screen bg-gray-50 py-12 px-6 font-sans text-gray-900">
+        <div class="max-w-xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-10">
+            <div class="mb-8">
+                <h1 class="text-3xl font-black text-gray-900 mb-2 tracking-tight">Protected Document</h1>
+                <p class="text-sm text-gray-500">Enter the share password to view and sign this invoice.</p>
+            </div>
+
+            <form @submit.prevent="unlock" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest">Share Password</label>
+                    <input v-model="accessForm.password" type="password"
+                           class="w-full bg-white border-2 border-gray-100 focus:border-indigo-500 rounded-2xl p-4 text-lg outline-none transition-all placeholder-gray-300 font-bold"
+                           placeholder="Enter password" />
+                </div>
+
+                <button type="submit"
+                        :disabled="accessForm.processing || !accessForm.password"
+                        class="w-full bg-indigo-600 text-white rounded-2xl p-4 text-sm font-black uppercase tracking-widest disabled:opacity-50">
+                    Unlock Document
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div v-else-if="invoice" class="min-h-screen bg-gray-50 py-12 px-6 font-sans text-gray-900">
         <div class="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
             <!-- Header Section -->
             <div class="p-10 border-b border-gray-50 flex justify-between items-center bg-white">
@@ -154,6 +187,13 @@ const submit = () => {
                 <div>Source IP: {{ invoice.signature_ip || 'AUDIT_PENDING' }}</div>
                 <div>WITBO LTD SECURE DOCUMENT SUITE v2.0</div>
             </div>
+        </div>
+    </div>
+
+    <div v-else class="min-h-screen bg-gray-50 py-12 px-6 font-sans text-gray-900">
+        <div class="max-w-xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-10">
+            <h1 class="text-3xl font-black text-gray-900 mb-2 tracking-tight">Document Unavailable</h1>
+            <p class="text-sm text-gray-500">This shared invoice is not available.</p>
         </div>
     </div>
 </template>

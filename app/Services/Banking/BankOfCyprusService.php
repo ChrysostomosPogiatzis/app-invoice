@@ -4,7 +4,9 @@ namespace App\Services\Banking;
 
 use App\Models\BankingConnection;
 use App\Models\BankTransaction;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class BankOfCyprusService
@@ -98,14 +100,26 @@ class BankOfCyprusService
         $subscriptionId = $this->createSubscription();
 
         $redirectUri = route('banking.callback', ['provider' => 'boc']);
-        $state = (string) Str::uuid();
+        $oauthState = (string) Str::uuid();
+
+        $this->updateCredentials([
+            'oauth_state' => $oauthState,
+            'oauth_state_expires_at' => now()->addMinutes(15)->toIso8601String(),
+        ]);
+
+        $statePayload = Crypt::encryptString(json_encode([
+            'provider' => 'boc',
+            'connection_id' => $this->connection->id,
+            'oauth_state' => $oauthState,
+        ]));
 
         return "{$this->baseUrl}/oauth2/authorize?" . 
             "response_type=code" .
             "&redirect_uri=" . $redirectUri .
             "&scope=UserOAuth2Security" .
             "&client_id=" . $this->clientId .
-            "&subscriptionid=" . $subscriptionId;
+            "&subscriptionid=" . $subscriptionId .
+            "&state=" . urlencode($statePayload);
     }
 
     /**
@@ -147,6 +161,13 @@ class BankOfCyprusService
                 'subscription_status' => 'ACTV'
             ])
         ]);
+    }
+
+    public function clearOAuthState(): void
+    {
+        $creds = $this->connection->credentials;
+        unset($creds['oauth_state'], $creds['oauth_state_expires_at']);
+        $this->connection->update(['credentials' => $creds]);
     }
 
     /**
@@ -228,7 +249,11 @@ class BankOfCyprusService
                 }
             }
 
-            \Illuminate\Support\Facades\Log::info("--- BoC Account Detail [{$accountId}] ---", (array)$detail);
+            Log::info('BoC account detail fetched', [
+                'connection_id' => $this->connection->id,
+                'account_ref' => $this->maskAccountReference($accountId),
+                'currency' => $detail['currency'] ?? 'EUR',
+            ]);
 
             $accounts[] = [
                 'name'           => $detail['accountAlias'] ?? $detail['accountName'] ?? 'Account',
@@ -278,21 +303,34 @@ class BankOfCyprusService
             'maxCount' => 0,
         ];
 
-        \Illuminate\Support\Facades\Log::info("--- BoC Syncing Transactions [{$accountId}] ---", $queryParams);
+        Log::info('BoC transaction sync started', [
+            'connection_id' => $this->connection->id,
+            'account_ref' => $this->maskAccountReference($accountId),
+            'start_date' => $queryParams['startDate'],
+            'end_date' => $queryParams['endDate'],
+        ]);
 
         $response = Http::withToken($this->getSystemToken())
             ->withHeaders($this->authHeaders())
             ->get("{$this->baseUrl}/v1/accounts/{$accountId}/statement", $queryParams);
 
         if (!$response->successful()) {
-            \Illuminate\Support\Facades\Log::error("--- BoC Sync FAILED [{$accountId}] ---", ['body' => $response->body()]);
+            Log::error('BoC transaction sync failed', [
+                'connection_id' => $this->connection->id,
+                'account_ref' => $this->maskAccountReference($accountId),
+                'status' => $response->status(),
+            ]);
             throw new \Exception('BoC transactions failed: ' . $response->body());
         }
 
         $rawBody = $response->json();
-        \Illuminate\Support\Facades\Log::info("--- BoC Raw Transactions Response [{$accountId}] ---", $rawBody ?? []);
-
         $transactions = $rawBody['transaction'] ?? [];
+        Log::info('BoC transaction sync response received', [
+            'connection_id' => $this->connection->id,
+            'account_ref' => $this->maskAccountReference($accountId),
+            'transaction_count' => count($transactions),
+        ]);
+
         $count = 0;
 
         foreach ($transactions as $tx) {
@@ -302,8 +340,6 @@ class BankOfCyprusService
             if (($tx['dcInd'] ?? '') === 'DEBIT') {
                 $amount = -$amount;
             }
-
-            \Illuminate\Support\Facades\Log::info("--- Syncing BoC Tx [{$tx['id']}] ---", ['date' => $date->toDateTimeString(), 'amount' => $amount]);
 
             \App\Models\BankTransaction::updateOrCreate(
                 [
@@ -326,6 +362,17 @@ class BankOfCyprusService
         }
 
         return $count;
+    }
+
+    private function maskAccountReference(?string $reference): string
+    {
+        if (! $reference) {
+            return 'unknown';
+        }
+
+        $suffix = substr($reference, -4);
+
+        return str_repeat('*', max(strlen($reference) - 4, 0)) . $suffix;
     }
 
     /**

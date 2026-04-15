@@ -3,14 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesWorkspace;
+use App\Http\Controllers\Concerns\ResolvesStoredFile;
 use App\Models\Invoice;
+use App\Models\PublicShare;
 use App\Services\InvoiceService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
+use Illuminate\Support\Str;
 
 class InvoiceController extends Controller
 {
-    use ResolvesWorkspace;
+    use ResolvesWorkspace, ResolvesStoredFile;
 
     public function __construct(private InvoiceService $invoiceService) {}
 
@@ -63,6 +67,18 @@ class InvoiceController extends Controller
             ->where('workspace_id', $workspaceId)
             ->findOrFail($id);
 
+        $invoice->attachments->each(function ($attachment) use ($invoice) {
+            $attachment->download_url = route('invoices.attachments.download', [
+                'invoice' => $invoice->id,
+                'attachment' => $attachment->id,
+            ]);
+        });
+
+        $invoice->publicShares->each(function ($share) {
+            $share->has_password = $share->requiresPassword();
+            unset($share->password);
+        });
+
         return Inertia::render('Finance/InvoiceShow', [
             'invoice' => $invoice
         ]);
@@ -103,7 +119,7 @@ class InvoiceController extends Controller
             'items.*.unit_price_net' => 'required|numeric|min:0',
             'items.*.vat_rate' => 'required|numeric|min:0',
             'attachment_files' => 'nullable|array',
-            'attachment_files.*' => 'file|max:10240',
+            'attachment_files.*' => 'file|mimes:jpg,jpeg,png,pdf|mimetypes:image/jpeg,image/png,application/pdf|max:10240',
             'notes' => 'nullable|string',
         ]);
 
@@ -176,6 +192,34 @@ class InvoiceController extends Controller
         return back()->with('success', 'Invoice emailed to ' . $invoice->contact->email . ' successfully.');
     }
 
+    public function updateShare(Request $request, $id)
+    {
+        $invoice = Invoice::where('workspace_id', $this->currentWorkspaceId())->findOrFail($id);
+
+        $validated = $request->validate([
+            'password' => 'nullable|string|min:8|max:255',
+            'expires_at' => 'nullable|date|after:now',
+        ]);
+
+        $share = $invoice->publicShares()->first();
+
+        if (! $share) {
+            $share = $invoice->publicShares()->create([
+                'share_token' => Str::random(40),
+            ]);
+        }
+
+        $share->fill([
+            'password' => filled($validated['password'] ?? null)
+                ? Hash::make($validated['password'])
+                : null,
+            'expires_at' => $validated['expires_at'] ?? null,
+        ]);
+        $share->save();
+
+        return back()->with('success', 'Invoice share settings updated.');
+    }
+
 
     /**
      * Mark an invoice as void.
@@ -220,6 +264,17 @@ class InvoiceController extends Controller
         $creditNote = $this->invoiceService->createInvoice($data, $workspaceId);
 
         return redirect()->route('invoices.show', $creditNote->id)->with('success', 'Credit note issued.');
+    }
+
+    public function downloadAttachment($id, $attachmentId)
+    {
+        $invoice = Invoice::where('workspace_id', $this->currentWorkspaceId())->findOrFail($id);
+        $attachment = $invoice->attachments()->where('attachments.id', $attachmentId)->firstOrFail();
+        $fullPath = $this->storedFileAbsolutePath($attachment->file_url);
+
+        abort_unless($fullPath && file_exists($fullPath), 404, 'Attachment file not found.');
+
+        return response()->download($fullPath, $attachment->file_name);
     }
 
     private function numberToWords($number)

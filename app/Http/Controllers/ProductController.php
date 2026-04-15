@@ -2,18 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesWorkspace;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\StockMovement;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class ProductController extends Controller
 {
+    use ResolvesWorkspace;
+
     private function workspaceId(): int
     {
-        return Auth::user()->workspaces()->first()->id;
+        return $this->currentWorkspaceId();
     }
 
     public function index(Request $request)

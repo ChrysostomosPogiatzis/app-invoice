@@ -58,7 +58,6 @@ onMounted(() => {
 const currentDate = ref(new Date());
 const viewMode = ref<'month' | 'week'>('week');
 const selectedDay = ref<{ date: Date; events: any[] } | null>(null);
-const tooltipPosition = ref({ x: 0, y: 0 });
 
 const currency = (value: number) => `EUR ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const shortDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -134,13 +133,18 @@ const getEventTypeConfig = (type: string) => {
     return configs[type] || { bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700', glow: 'shadow-slate-500/20', label: type };
 };
 
-const handleDayClick = (date: Date, event: MouseEvent) => {
+const handleDayClick = (date: Date) => {
     const events = getEventsForDate(date);
-    if (events.length > 0) { const rect = (event.currentTarget as HTMLElement).getBoundingClientRect(); tooltipPosition.value = { x: rect.left, y: rect.bottom + 12 }; selectedDay.value = { date, events }; }
+    if (events.length > 0) {
+        selectedDay.value = { date, events };
+    }
 };
 const closeTooltip = () => { selectedDay.value = null; };
 const navigateToUrl = (url: string | null | undefined) => { if (url) window.location.href = url; };
 const isToday = (date: Date) => date.toDateString() === new Date().toDateString();
+const isCurrentMonth = (date: Date) => date.getMonth() === currentDate.value.getMonth() && date.getFullYear() === currentDate.value.getFullYear();
+const weekDayName = (date: Date) => date.toLocaleDateString('en-GB', { weekday: 'short' });
+const weekDayMonth = (date: Date) => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
 // Calendar navigation
 const goToToday = () => { currentDate.value = new Date(); };
@@ -276,24 +280,34 @@ onMounted(() => {
                                 </div>
                             </div>
 
-                            <div v-if="viewMode === 'week'" class="grid grid-cols-7 gap-3">
-                                <div v-for="day in weekDays" :key="'week-' + day.toISOString()" @click="handleDayClick(day, $event)" class="group cursor-pointer rounded-2xl p-4 transition-all duration-300 border bg-white" :class="isToday(day) ? 'border-indigo-300 shadow-lg shadow-indigo-100 ring-2 ring-indigo-50/50 scale-105 z-10' : 'border-slate-100 hover:border-indigo-200 hover:shadow-md'">
-                                    <div class="text-center mb-4">
-                                        <div class="text-[10px] font-black uppercase tracking-widest mb-1" :class="isToday(day) ? 'text-indigo-600' : 'text-slate-400'">{{ day.toLocaleDateString('en-GB', { weekday: 'short' }) }}</div>
-                                        <div class="text-2xl font-black" :class="isToday(day) ? 'text-indigo-900' : 'text-slate-800'">{{ day.toLocaleDateString('en-GB', { day: 'numeric' }) }}</div>
+                            <div v-if="viewMode === 'week'" class="overflow-x-auto pb-2">
+                                <div class="grid grid-cols-7 gap-3 min-w-[980px]">
+                                <div v-for="day in weekDays" :key="'week-' + day.toISOString()" @click="handleDayClick(day)" class="group cursor-pointer rounded-2xl p-4 transition-all duration-300 border bg-white min-h-[250px]" :class="isToday(day) ? 'border-indigo-300 shadow-lg shadow-indigo-100 ring-2 ring-indigo-50/50' : 'border-slate-100 hover:border-indigo-200 hover:shadow-md'">
+                                    <div class="flex items-start justify-between gap-3 mb-4">
+                                        <div>
+                                            <div class="text-[10px] font-black uppercase tracking-widest mb-1" :class="isToday(day) ? 'text-indigo-600' : 'text-slate-400'">{{ weekDayName(day) }}</div>
+                                            <div class="text-2xl font-black leading-none" :class="isToday(day) ? 'text-indigo-900' : 'text-slate-800'">{{ day.toLocaleDateString('en-GB', { day: 'numeric' }) }}</div>
+                                            <div class="text-[10px] font-bold uppercase tracking-widest mt-2" :class="isToday(day) ? 'text-indigo-500' : isCurrentMonth(day) ? 'text-slate-400' : 'text-slate-300'">{{ weekDayMonth(day) }}</div>
+                                        </div>
+                                        <span class="shrink-0 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest" :class="getEventsForDate(day).length ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'">
+                                            {{ getEventsForDate(day).length }} {{ getEventsForDate(day).length === 1 ? 'item' : 'items' }}
+                                        </span>
                                     </div>
-                                    <div class="space-y-1.5 h-[160px] overflow-y-auto pr-1">
+                                    <div class="space-y-1.5 h-[170px] overflow-y-auto pr-1">
                                         <div v-for="event in getEventsForDate(day)" :key="event.title" @click.stop="navigateToUrl(event.url)" class="px-2 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-wider truncate transition-transform hover:scale-105" :class="[getEventTypeConfig(event.type).bg, getEventTypeConfig(event.type).text]">
                                             {{ event.time ? (formatTime(event.time) + ' : ') : '' }}{{ event.title }}
                                         </div>
-                                        <div v-if="getEventsForDate(day).length === 0" class="flex items-center justify-center h-full text-[10px] font-bold text-slate-300 uppercase tracking-widest text-center mt-4 border-2 border-dashed border-slate-100 rounded-xl py-6">Empty</div>
+                                        <div v-if="getEventsForDate(day).length === 0" class="flex items-center justify-center h-full text-[10px] font-bold text-slate-300 uppercase tracking-widest text-center mt-4 border-2 border-dashed border-slate-100 rounded-xl py-6">No events</div>
                                     </div>
                                 </div>
+                                </div>
+                                <p class="mt-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 text-center md:hidden">Swipe sideways to view the full week</p>
+                                <p class="mt-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 text-right hidden md:block">Week view stays horizontally scrollable on narrower screens</p>
                             </div>
                             
                             <div v-else-if="viewMode === 'month'" class="grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-inner">
                                 <div v-for="day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']" :key="day" class="text-[9px] font-black uppercase tracking-widest text-slate-500 text-center py-2.5 bg-slate-50">{{ day }}</div>
-                                <div v-for="day in monthDays" :key="'month-' + day.toISOString()" @click="handleDayClick(day, $event)"
+                                <div v-for="day in monthDays" :key="'month-' + day.toISOString()" @click="handleDayClick(day)"
                                     class="min-h-[100px] bg-white p-2 cursor-pointer transition-colors hover:bg-indigo-50/30 relative flex flex-col gap-1"
                                     :class="day.getMonth() !== currentDate.getMonth() ? 'opacity-40' : ''">
                                     <!-- Day number -->
@@ -444,7 +458,8 @@ onMounted(() => {
 
                 <!-- Floating Tooltip -->
                 <div v-if="selectedDay" class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[2px] transition-all" @click="closeTooltip"></div>
-                <div v-if="selectedDay" class="fixed z-50 min-w-[320px] max-w-sm rounded-3xl border border-slate-200/80 bg-white/95 backdrop-blur-xl p-6 shadow-2xl shadow-indigo-500/20 animate-in zoom-in-95 duration-200" :style="{ left: tooltipPosition.x + 'px', top: tooltipPosition.y + 'px' }">
+                <div v-if="selectedDay" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                <div class="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white/95 backdrop-blur-xl p-6 shadow-2xl shadow-indigo-500/20 animate-in zoom-in-95 duration-200">
                     <div class="mb-5 flex items-center justify-between">
                         <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-900">{{ selectedDay.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) }}</h4>
                         <button @click="closeTooltip" class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg></button>
@@ -458,6 +473,7 @@ onMounted(() => {
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
 
             </div>

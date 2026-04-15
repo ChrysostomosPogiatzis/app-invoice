@@ -2,21 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesStoredFile;
+use App\Http\Controllers\Concerns\ResolvesWorkspace;
 use App\Models\Expense;
 use App\Models\Workspace;
 use App\Models\StaffMember;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class ExpenseController extends Controller
 {
+    use ResolvesWorkspace, ResolvesStoredFile;
+
     /**
      * Display a listing of expenses.
      */
     public function index(Request $request)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $query = Expense::where('workspace_id', $workspaceId);
 
         if ($request->search) {
@@ -38,7 +42,14 @@ class ExpenseController extends Controller
             $query->latest('expense_date');
         }
 
-        $expenses = $query->paginate(20)->withQueryString();
+        $expenses = $query->paginate(20)->withQueryString()
+            ->through(function (Expense $expense) {
+                $expense->receipt_download_url = $expense->receipt_url
+                    ? route('expenses.receipt.download', $expense->id)
+                    : null;
+
+                return $expense;
+            });
 
         return Inertia::render('Finance/Expenses', [
             'expenses' => $expenses,
@@ -62,7 +73,7 @@ class ExpenseController extends Controller
      */
     public function create()
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $workspace = Workspace::findOrFail($workspaceId);
         $staffMembers = StaffMember::where('workspace_id', $workspaceId)->get();
 
@@ -77,7 +88,7 @@ class ExpenseController extends Controller
      */
     public function store(Request $request)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
 
         $validated = $request->validate([
             'category' => 'required|string', // Changed to string to allow custom categories
@@ -102,14 +113,13 @@ class ExpenseController extends Controller
             'holiday_amount' => 'nullable|numeric',
             'union_amount' => 'nullable|numeric',
             'net_payable' => 'nullable|numeric',
-            'receipt_file' => 'nullable|file|mimes:jpg,png,pdf|max:5120',
+            'receipt_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|mimetypes:image/jpeg,image/png,application/pdf|max:5120',
             'notes' => 'nullable|string'
         ]);
 
         $receiptUrl = null;
         if ($request->hasFile('receipt_file')) {
-            $path = $request->file('receipt_file')->store('receipts', 'public');
-            $receiptUrl = \Illuminate\Support\Facades\Storage::url($path);
+            $receiptUrl = $request->file('receipt_file')->store('receipts', 'local');
         }
 
         Expense::create(array_merge($validated, [
@@ -125,8 +135,11 @@ class ExpenseController extends Controller
      */
     public function show($id)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $expense = Expense::where('workspace_id', $workspaceId)->findOrFail($id);
+        $expense->receipt_download_url = $expense->receipt_url
+            ? route('expenses.receipt.download', $expense->id)
+            : null;
 
         return Inertia::render('Finance/ExpenseShow', [
             'expense' => $expense
@@ -138,7 +151,7 @@ class ExpenseController extends Controller
      */
     public function edit($id)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $expense = Expense::where('workspace_id', $workspaceId)->findOrFail($id);
         $workspace = Workspace::findOrFail($workspaceId);
         $staffMembers = StaffMember::where('workspace_id', $workspaceId)->get();
@@ -155,7 +168,7 @@ class ExpenseController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $expense = Expense::where('workspace_id', $workspaceId)->findOrFail($id);
 
         $validated = $request->validate([
@@ -181,13 +194,18 @@ class ExpenseController extends Controller
             'holiday_amount' => 'nullable|numeric',
             'union_amount' => 'nullable|numeric',
             'net_payable' => 'nullable|numeric',
-            'receipt_file' => 'nullable|file|mimes:jpg,png,pdf|max:5120',
+            'receipt_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|mimetypes:image/jpeg,image/png,application/pdf|max:5120',
             'notes' => 'nullable|string'
         ]);
 
         if ($request->hasFile('receipt_file')) {
-            $path = $request->file('receipt_file')->store('receipts', 'public');
-            $validated['receipt_url'] = \Illuminate\Support\Facades\Storage::url($path);
+            $oldReceiptDisk = $this->storedFileDisk($expense->receipt_url);
+            $oldReceiptPath = $this->normalizeStoredPath($expense->receipt_url);
+            if ($oldReceiptDisk && $oldReceiptPath) {
+                Storage::disk($oldReceiptDisk)->delete($oldReceiptPath);
+            }
+
+            $validated['receipt_url'] = $request->file('receipt_file')->store('receipts', 'local');
         }
 
         $expense->update($validated);
@@ -200,10 +218,27 @@ class ExpenseController extends Controller
      */
     public function destroy($id)
     {
-        $workspaceId = Auth::user()->workspaces()->first()->id;
+        $workspaceId = $this->currentWorkspaceId();
         $expense = Expense::where('workspace_id', $workspaceId)->findOrFail($id);
+
+        $receiptDisk = $this->storedFileDisk($expense->receipt_url);
+        $receiptPath = $this->normalizeStoredPath($expense->receipt_url);
+        if ($receiptDisk && $receiptPath) {
+            Storage::disk($receiptDisk)->delete($receiptPath);
+        }
+
         $expense->delete();
 
         return redirect()->route('expenses.index')->with('success', 'Expense record removed.');
+    }
+
+    public function downloadReceipt($id)
+    {
+        $expense = Expense::where('workspace_id', $this->currentWorkspaceId())->findOrFail($id);
+        $fullPath = $this->storedFileAbsolutePath($expense->receipt_url);
+
+        abort_unless($fullPath && file_exists($fullPath), 404, 'Receipt file not found.');
+
+        return response()->file($fullPath);
     }
 }

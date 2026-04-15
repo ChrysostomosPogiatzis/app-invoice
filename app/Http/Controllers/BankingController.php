@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesWorkspace;
 use App\Models\BankingConnection;
 use App\Models\BankTransaction;
 use App\Models\Invoice;
@@ -11,15 +12,17 @@ use App\Services\Banking\MyPosService;
 use App\Services\Banking\EurobankService;
 use App\Services\Banking\BankOfCyprusService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class BankingController extends Controller
 {
+    use ResolvesWorkspace;
+
     private function workspaceId(): int
     {
-        return Auth::user()->workspaces()->first()->id;
+        return $this->currentWorkspaceId();
     }
 
     // ------------------------------------------------------------------ INDEX
@@ -280,24 +283,9 @@ class BankingController extends Controller
     // ------------------------------------------------------------- CALLBACK
     public function callback(Request $request, $provider)
     {
-        Log::info("--- BANKING CALLBACK [{$provider}] ---", [
-            'url'    => $request->fullUrl(),
-            'query'  => $request->all(),
-            'method' => $request->method(),
-            'ip'     => $request->ip(),
-            'ua'     => $request->userAgent(),
-            'headers'=> $request->headers->all(),
-            'body'   => $request->getContent(),
-        ]);
-
         $code = $request->get('code');
         $error = $request->get('error');
         $state = $request->get('state');
-     Log::info("--- BANKING CALLBACK [{$provider}] ---", [
-            'code'    => $code,
-            'error'   => $error,
-            'state'   => $state,
-        ]);
 
         if ($error) {
             return redirect()->route('banking.index')->with('error', "Bank authentication failed: {$error}");
@@ -305,18 +293,42 @@ class BankingController extends Controller
 
         if ($code) {
             try {
-                $connId = is_numeric($state) ? $state : null;
-                $conn = null;
-
-                if ($connId) {
-                    $conn = BankingConnection::find($connId);
+                if (! $state) {
+                    throw new \Exception('Missing OAuth state.');
                 }
 
-                if (!$conn) {
-                    $conn = BankingConnection::where('provider', $provider)->latest()->first();
+                $payload = json_decode(Crypt::decryptString($state), true, flags: JSON_THROW_ON_ERROR);
+
+                if (($payload['provider'] ?? null) !== $provider) {
+                    throw new \Exception('OAuth state provider mismatch.');
                 }
 
-                if (!$conn) throw new \Exception("No eligible {$provider} connection found to finalize.");
+                $conn = BankingConnection::where('id', $payload['connection_id'] ?? null)
+                    ->where('provider', $provider)
+                    ->first();
+
+                if (! $conn) {
+                    throw new \Exception("No eligible {$provider} connection found to finalize.");
+                }
+
+                $user = $request->user();
+                $canAccessWorkspace = $user?->isSuperAdmin()
+                    || $user?->workspaces()->where('workspaces.id', $conn->workspace_id)->exists();
+
+                if (! $canAccessWorkspace) {
+                    throw new \Exception('Unauthorized banking callback.');
+                }
+
+                $storedState = $conn->credential('oauth_state');
+                $expiresAt = $conn->credential('oauth_state_expires_at');
+
+                if (! $storedState || ! hash_equals($storedState, (string) ($payload['oauth_state'] ?? ''))) {
+                    throw new \Exception('OAuth state validation failed.');
+                }
+
+                if ($expiresAt && now()->isAfter(\Illuminate\Support\Carbon::parse($expiresAt))) {
+                    throw new \Exception('OAuth state has expired.');
+                }
 
                 $service = match($provider) {
                     'boc'      => new \App\Services\Banking\BankOfCyprusService($conn),
@@ -326,6 +338,9 @@ class BankingController extends Controller
 
                 if ($service && method_exists($service, 'finalizeCallback')) {
                     $service->finalizeCallback($code);
+                    if (method_exists($service, 'clearOAuthState')) {
+                        $service->clearOAuthState();
+                    }
                     return redirect()->route('banking.index')->with('success', "Authenticated with {$provider} successfully!");
                 }
             } catch (\Exception $e) {

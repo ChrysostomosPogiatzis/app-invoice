@@ -109,11 +109,11 @@ class InvoiceService
 
             if (!empty($files)) {
                 foreach ($files as $file) {
-                    $path = $file->store('attachments', 'public');
+                    $path = $file->store('attachments', 'local');
                     Attachment::create([
                         'related_id'   => $invoice->id,
                         'related_type' => 'invoice',
-                        'file_url'     => Storage::url($path),
+                        'file_url'     => $path,
                         'file_name'    => $file->getClientOriginalName(),
                     ]);
                 }
@@ -160,4 +160,3 @@ class InvoiceService
         });
     }
 }
-

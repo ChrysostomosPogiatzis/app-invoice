@@ -10,6 +10,7 @@ class SubscriptionPayment extends Model
         'workspace_id',
         'amount',
         'payment_method',
+        'gateway_order_id',
         'billed_at',
         'extended_until',
         'notes'

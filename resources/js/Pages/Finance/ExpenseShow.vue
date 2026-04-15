@@ -12,6 +12,7 @@ const props = defineProps<{
         reminder_time: string | null;
         vendor_name: string | null;
         receipt_url: string | null;
+        receipt_download_url?: string | null;
         created_at: string;
         is_payroll: boolean;
         gross_salary: number | null;
@@ -195,12 +196,12 @@ const getCategoryStyle = (cat: string) => {
                 </div>
 
                 <!-- Receipt -->
-                <div v-if="expense.receipt_url" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div v-if="expense.receipt_download_url" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     <div class="p-6 border-b border-slate-200">
                         <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Receipt</h3>
                     </div>
                     <div class="p-6">
-                        <a :href="expense.receipt_url" target="_blank" class="flex items-center gap-3 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                        <a :href="expense.receipt_download_url" target="_blank" class="flex items-center gap-3 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                             <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" stroke-width="2" stroke-linecap="round"></path>
                             </svg>

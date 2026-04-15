@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesWorkspace;
 use App\Models\Reminder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class ReminderController extends Controller
 {
+    use ResolvesWorkspace;
+
     private function workspaceId(): int
     {
-        return Auth::user()->workspaces()->first()->id;
+        return $this->currentWorkspaceId();
     }
 
     public function index()

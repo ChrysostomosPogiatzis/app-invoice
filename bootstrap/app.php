@@ -21,9 +21,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->validateCsrfTokens(except: [
             '/billing/webhook',
-            '/billing/checkout',
-            '/billing/success',
-            '/billing/cancel',
         ]);
 
         $middleware->alias([

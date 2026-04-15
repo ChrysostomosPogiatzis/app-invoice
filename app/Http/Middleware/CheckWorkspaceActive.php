@@ -19,7 +19,7 @@ class CheckWorkspaceActive
         $user = $request->user();
         
         // Always allow logout, workspace switching, and billing checkout regardless of node status
-        if ($request->routeIs(['logout', 'workspaces.switch', 'billing.checkout'])) {
+        if ($request->routeIs(['logout', 'workspaces.switch', 'billing.checkout', 'billing.success', 'billing.cancel'])) {
             return $next($request);
         }
         
