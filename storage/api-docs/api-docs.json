@@ -1,2449 +1,2449 @@
 {
-    "openapi": "3.0.0",
-    "info": {
-        "title": "Witbo Business API",
-        "version": "1.0.0",
-        "description": "All endpoints except POST /api/login require a Bearer token. All data is scoped to the authenticated workspace.\n\n### Mobile App Onboarding\nInstead of manual login, the mobile app connects by scanning a QR Code generated in the **Settings -> Developer & API Infrastructure** dashboard.\n\n**What the QR Code contains:**\nThe QR code encodes a raw JSON string with the API Base URL and the newly generated API token. The mobile app must parse this JSON to configure its HTTP client.\n\n```json\n{\n  \"url\": \"https://call.witbo.com.cy/api\",\n  \"token\": \"1|abcdef1234567890qwertyuiop\"\n}\n```",
-        "contact": {
-            "email": "support@witbo.com.cy"
-        }
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Witbo Business API",
+    "version": "1.0.0",
+    "description": "All endpoints except POST /api/login require a Bearer token. All data is scoped to the authenticated workspace.\n\n### Mobile App Onboarding\nInstead of manual login, the mobile app connects by scanning a QR Code generated in the **Settings -> Developer & API Infrastructure** dashboard.\n\n**What the QR Code contains:**\nThe QR code encodes a raw JSON string with the API Base URL and the newly generated API token. The mobile app must parse this JSON to configure its HTTP client.\n\n## Real-time Sync & Unknown Callers\nThe system handles unknown numbers (not in your phone contacts) seamlessly:\n\n* **Auto-Creation**: If a number is not already in your Witbo CRM, the backend will automatically create a new Contact/Lead for that number the moment the call ends.\n* **Dynamic UI**: If there is no name associated with the number, the dashboard shows the phone number directly, ensuring you always know whose record you're updating.\n* **Data Integrity**: Call type, duration, and timestamps are captured even without a contact name. Notes like 'Interested in the villa project' are attached immediately to the newly created record.\n\nThe logic is built to be **phone-number-first**, ensuring every interaction is captured from the mobile device instantly.",
+    "contact": {
+      "email": "support@witbo.com.cy"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://call.witbo.com.cy",
+      "description": "Production"
     },
-    "servers": [
-        {
-            "url": "https://call.witbo.com.cy",
-            "description": "Production"
-        },
-        {
-            "url": "http://localhost:8000",
-            "description": "Local"
+    {
+      "url": "http://localhost:8000",
+      "description": "Local"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Authentication"
+    },
+    {
+      "name": "User",
+      "description": "Current user context"
+    },
+    {
+      "name": "Contacts",
+      "description": "CRM contacts"
+    },
+    {
+      "name": "Invoices",
+      "description": "Invoicing"
+    },
+    {
+      "name": "Quotes",
+      "description": "Quotations"
+    },
+    {
+      "name": "Expenses",
+      "description": "Expenses & payroll"
+    },
+    {
+      "name": "Products",
+      "description": "Product catalogue & stock"
+    },
+    {
+      "name": "Staff",
+      "description": "HR & leave"
+    },
+    {
+      "name": "Reminders",
+      "description": "Follow-up reminders"
+    },
+    {
+      "name": "Dashboard",
+      "description": "KPI summary & calendar"
+    },
+    {
+      "name": "Sync",
+      "description": "Bulk mobile import"
+    },
+    {
+      "name": "Banking",
+      "description": "Banking sync"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "token"
+      }
+    },
+    "schemas": {
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "current_page": {
+            "type": "integer"
+          },
+          "last_page": {
+            "type": "integer"
+          },
+          "per_page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
         }
-    ],
-    "tags": [
-        {
-            "name": "Auth",
-            "description": "Authentication"
-        },
-        {
-            "name": "User",
-            "description": "Current user context"
-        },
-        {
-            "name": "Contacts",
-            "description": "CRM contacts"
-        },
-        {
-            "name": "Invoices",
-            "description": "Invoicing"
-        },
-        {
-            "name": "Quotes",
-            "description": "Quotations"
-        },
-        {
-            "name": "Expenses",
-            "description": "Expenses & payroll"
-        },
-        {
-            "name": "Products",
-            "description": "Product catalogue & stock"
-        },
-        {
-            "name": "Staff",
-            "description": "HR & leave"
-        },
-        {
-            "name": "Reminders",
-            "description": "Follow-up reminders"
-        },
-        {
-            "name": "Dashboard",
-            "description": "KPI summary & calendar"
-        },
-        {
-            "name": "Sync",
-            "description": "Bulk mobile import"
-        },
-        {
-            "name": "Banking",
-            "description": "Banking sync"
+      },
+      "ValidationError": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "object"
+          }
         }
-    ],
-    "components": {
-        "securitySchemes": {
-            "BearerToken": {
-                "type": "http",
-                "scheme": "bearer",
-                "bearerFormat": "token"
+      },
+      "Contact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "company_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "nullable": true
+          },
+          "mobile_number": {
+            "type": "string"
+          },
+          "contact_type": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "supplier",
+              "lead"
+            ]
+          },
+          "vat_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InvoiceItem": {
+        "type": "object",
+        "required": [
+          "description",
+          "quantity",
+          "unit_price_net",
+          "vat_rate"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "format": "float"
+          },
+          "unit_price_net": {
+            "type": "number",
+            "format": "float"
+          },
+          "vat_rate": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
+      "Invoice": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "invoice_number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "unpaid",
+              "partial",
+              "paid",
+              "void"
+            ]
+          },
+          "doc_type": {
+            "type": "string",
+            "enum": [
+              "invoice",
+              "credit_note"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "grand_total_gross": {
+            "type": "number",
+            "format": "float"
+          },
+          "balance_due": {
+            "type": "number",
+            "format": "float"
+          },
+          "amount_paid": {
+            "type": "number",
+            "format": "float"
+          },
+          "discount": {
+            "type": "number",
+            "format": "float"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "contact": {
+            "$ref": "#/components/schemas/Contact"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceItem"
             }
-        },
-        "schemas": {
-            "PaginationMeta": {
-                "type": "object",
-                "properties": {
-                    "current_page": {
-                        "type": "integer"
-                    },
-                    "last_page": {
-                        "type": "integer"
-                    },
-                    "per_page": {
-                        "type": "integer"
-                    },
-                    "total": {
-                        "type": "integer"
-                    }
-                }
-            },
-            "ValidationError": {
-                "type": "object",
-                "properties": {
-                    "message": {
-                        "type": "string"
-                    },
-                    "errors": {
-                        "type": "object"
-                    }
-                }
-            },
-            "Contact": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "company_name": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "email": {
-                        "type": "string",
-                        "format": "email",
-                        "nullable": true
-                    },
-                    "mobile_number": {
-                        "type": "string"
-                    },
-                    "contact_type": {
-                        "type": "string",
-                        "enum": [
-                            "customer",
-                            "supplier",
-                            "lead"
-                        ]
-                    },
-                    "vat_number": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "created_at": {
-                        "type": "string",
-                        "format": "date-time"
-                    }
-                }
-            },
-            "InvoiceItem": {
+          }
+        }
+      },
+      "Quote": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "quote_number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "sent",
+              "accepted",
+              "rejected",
+              "expired"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date"
+          },
+          "grand_total_gross": {
+            "type": "number",
+            "format": "float"
+          },
+          "contact": {
+            "$ref": "#/components/schemas/Contact"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceItem"
+            }
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string",
+            "nullable": true
+          },
+          "product_type": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "service",
+              "digital"
+            ]
+          },
+          "unit_price_net": {
+            "type": "number",
+            "format": "float"
+          },
+          "unit_price_gross": {
+            "type": "number",
+            "format": "float"
+          },
+          "vat_rate": {
+            "type": "number",
+            "format": "float"
+          },
+          "current_stock": {
+            "type": "number",
+            "format": "float"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "discontinued"
+            ]
+          }
+        }
+      },
+      "Expense": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "float"
+          },
+          "expense_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_payroll": {
+            "type": "boolean"
+          },
+          "net_payable": {
+            "type": "number",
+            "format": "float",
+            "nullable": true
+          },
+          "gross_salary": {
+            "type": "number",
+            "format": "float",
+            "nullable": true
+          }
+        }
+      },
+      "StaffMember": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string",
+            "nullable": true
+          },
+          "base_salary": {
+            "type": "number",
+            "format": "float"
+          },
+          "leave_balance": {
+            "type": "number",
+            "format": "float"
+          },
+          "joining_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        }
+      },
+      "Reminder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "remind_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "contact": {
+            "$ref": "#/components/schemas/Contact"
+          }
+        }
+      },
+      "QRAuthPayload": {
+        "type": "object",
+        "description": "JSON payload embedded in the connection QR code available in the web dashboard.",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://call.witbo.com.cy/api"
+          },
+          "token": {
+            "type": "string",
+            "example": "1|abcdef1234567890"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerToken": []
+    }
+  ],
+  "paths": {
+    "/api/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Obtain Bearer token (rate-limited 5/min)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
                 "type": "object",
                 "required": [
-                    "description",
-                    "quantity",
-                    "unit_price_net",
-                    "vat_rate"
+                  "email",
+                  "password",
+                  "device_name"
                 ],
                 "properties": {
-                    "product_id": {
-                        "type": "integer",
-                        "nullable": true
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "quantity": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "unit_price_net": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "vat_rate": {
-                        "type": "number",
-                        "format": "float"
-                    }
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password"
+                  },
+                  "device_name": {
+                    "type": "string",
+                    "example": "iPhone 15"
+                  }
                 }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "user": {
+                      "type": "object"
+                    },
+                    "workspace": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Revoke token (logout)",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        }
+      }
+    },
+    "/api/user": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Get current user and workspace context",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object"
+                    },
+                    "current_workspace": {
+                      "type": "object"
+                    },
+                    "workspaces": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contacts": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "List contacts",
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "schema": {
+              "type": "string"
             },
-            "Invoice": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "invoice_number": {
-                        "type": "string"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": [
-                            "draft",
-                            "unpaid",
-                            "partial",
-                            "paid",
-                            "void"
-                        ]
-                    },
-                    "doc_type": {
-                        "type": "string",
-                        "enum": [
-                            "invoice",
-                            "credit_note"
-                        ]
-                    },
-                    "date": {
-                        "type": "string",
-                        "format": "date"
-                    },
-                    "due_date": {
-                        "type": "string",
-                        "format": "date",
-                        "nullable": true
-                    },
-                    "grand_total_gross": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "balance_due": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "amount_paid": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "discount": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "notes": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "contact": {
+            "description": "Filter by mobile_number"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
                         "$ref": "#/components/schemas/Contact"
+                      }
                     },
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/InvoiceItem"
-                        }
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
                     }
+                  }
                 }
-            },
-            "Quote": {
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Create contact",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
                 "type": "object",
+                "required": [
+                  "name"
+                ],
                 "properties": {
-                    "id": {
-                        "type": "integer"
+                  "name": {
+                    "type": "string"
+                  },
+                  "company_name": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "nullable": true
+                  },
+                  "mobile_number": {
+                    "type": "string"
+                  },
+                  "contact_type": {
+                    "type": "string",
+                    "enum": [
+                      "customer",
+                      "supplier",
+                      "lead"
+                    ]
+                  },
+                  "vat_number": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/contacts/lookup": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Lookup contact by phone (last 8 digits match)",
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/contacts/lookup-or-create": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Lookup or create contact by phone",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contacts/{id}": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Get contact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Update contact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Delete contact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/contacts/{id}/history": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Get contact financial history",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contacts/{id}/call-logs": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Log a call (Legacy: requires contact ID)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "call_type"
+                ],
+                "properties": {
+                  "call_type": {
+                    "type": "string",
+                    "enum": [
+                      "inbound",
+                      "outbound",
+                      "missed",
+                      "incoming",
+                      "outgoing"
+                    ]
+                  },
+                  "call_date": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "call_duration_seconds": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "call_notes": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contacts/{id}/reminders": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Add reminder for contact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "remind_at"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "remind_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/invoices": {
+      "get": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "List invoices (paginated 30/page)",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Invoice"
+                      }
                     },
-                    "quote_number": {
-                        "type": "string"
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "Create invoice",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "contact_id",
+                  "date",
+                  "items"
+                ],
+                "properties": {
+                  "contact_id": {
+                    "type": "integer"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "due_date": {
+                    "type": "string",
+                    "format": "date",
+                    "nullable": true
+                  },
+                  "discount": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "notes": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/InvoiceItem"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/invoices/{id}": {
+      "get": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "Get invoice with payments, VAT breakdown and attachments",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "Delete invoice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/invoices/{id}/download": {
+      "get": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "Download invoice PDF (rate-limited 10/min)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF",
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/quotes": {
+      "get": {
+        "tags": [
+          "Quotes"
+        ],
+        "summary": "List quotes",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Quote"
+                      }
                     },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Quotes"
+        ],
+        "summary": "Create quote",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "contact_id",
+                  "date",
+                  "valid_until",
+                  "items"
+                ],
+                "properties": {
+                  "contact_id": {
+                    "type": "integer"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "valid_until": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "discount": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "notes": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/InvoiceItem"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Quote"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/quotes/{id}": {
+      "get": {
+        "tags": [
+          "Quotes"
+        ],
+        "summary": "Get quote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Quote"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Quotes"
+        ],
+        "summary": "Update quote (draft only)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Quote"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Quotes"
+        ],
+        "summary": "Delete quote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/quotes/{id}/download": {
+      "get": {
+        "tags": [
+          "Quotes"
+        ],
+        "summary": "Download quote PDF",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF",
+            "content": {
+              "application/pdf": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "List expenses",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Expense"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "Create expense",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "description",
+                  "amount",
+                  "expense_date"
+                ],
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "number"
+                  },
+                  "expense_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "category": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "notes": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/expenses/{id}": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "Get expense",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "Update expense",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "Delete expense",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "List products",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Product"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Create product",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "unit_price_net",
+                  "vat_rate"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "sku": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "unit_price_net": {
+                    "type": "number"
+                  },
+                  "vat_rate": {
+                    "type": "number",
+                    "example": 19
+                  },
+                  "product_type": {
+                    "type": "string",
+                    "enum": [
+                      "physical",
+                      "service",
+                      "digital"
+                    ]
+                  },
+                  "current_stock": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "purchase_price": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "inactive",
+                      "discontinued"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/products/{id}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Get product",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Update product",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Delete product",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/adjust-stock": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Adjust stock (in/out)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "quantity",
+                  "direction",
+                  "movement_type"
+                ],
+                "properties": {
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "in",
+                      "out"
+                    ]
+                  },
+                  "movement_type": {
+                    "type": "string",
+                    "example": "purchase"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
                     "status": {
-                        "type": "string",
-                        "enum": [
-                            "draft",
-                            "sent",
-                            "accepted",
-                            "rejected",
-                            "expired"
-                        ]
-                    },
-                    "date": {
-                        "type": "string",
-                        "format": "date"
-                    },
-                    "valid_until": {
-                        "type": "string",
-                        "format": "date"
-                    },
-                    "grand_total_gross": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "contact": {
-                        "$ref": "#/components/schemas/Contact"
-                    },
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/InvoiceItem"
-                        }
-                    }
-                }
-            },
-            "Product": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "sku": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "product_type": {
-                        "type": "string",
-                        "enum": [
-                            "physical",
-                            "service",
-                            "digital"
-                        ]
-                    },
-                    "unit_price_net": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "unit_price_gross": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "vat_rate": {
-                        "type": "number",
-                        "format": "float"
+                      "type": "string"
                     },
                     "current_stock": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": [
-                            "active",
-                            "inactive",
-                            "discontinued"
-                        ]
+                      "type": "number"
                     }
+                  }
                 }
-            },
-            "Expense": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "amount": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "expense_date": {
-                        "type": "string",
-                        "format": "date"
-                    },
-                    "category": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "is_payroll": {
-                        "type": "boolean"
-                    },
-                    "net_payable": {
-                        "type": "number",
-                        "format": "float",
-                        "nullable": true
-                    },
-                    "gross_salary": {
-                        "type": "number",
-                        "format": "float",
-                        "nullable": true
-                    }
-                }
-            },
-            "StaffMember": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "position": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "base_salary": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "leave_balance": {
-                        "type": "number",
-                        "format": "float"
-                    },
-                    "joining_date": {
-                        "type": "string",
-                        "format": "date",
-                        "nullable": true
-                    }
-                }
-            },
-            "Reminder": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "title": {
-                        "type": "string"
-                    },
-                    "remind_at": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "contact": {
-                        "$ref": "#/components/schemas/Contact"
-                    }
-                }
-            },
-            "QRAuthPayload": {
-                "type": "object",
-                "description": "JSON payload embedded in the connection QR code available in the web dashboard.",
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "format": "uri",
-                        "example": "https://call.witbo.com.cy/api"
-                    },
-                    "token": {
-                        "type": "string",
-                        "example": "1|abcdef1234567890"
-                    }
-                }
+              }
             }
+          },
+          "422": {
+            "description": "Insufficient stock"
+          }
         }
+      }
     },
-    "security": [
-        {
-            "BearerToken": []
+    "/api/staff": {
+      "get": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "List staff members",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StaffMember"
+                  }
+                }
+              }
+            }
+          }
         }
-    ],
-    "paths": {
-        "/api/login": {
-            "post": {
-                "tags": [
-                    "Auth"
+      }
+    },
+    "/api/staff/on-leave-today": {
+      "get": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Staff on approved leave today",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StaffMember"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/staff/{id}": {
+      "get": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Get staff member",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffMember"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/staff/{id}/leave": {
+      "get": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Get leave requests",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Submit leave request",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "start_date",
+                  "end_date",
+                  "type"
                 ],
-                "summary": "Obtain Bearer token (rate-limited 5/min)",
-                "security": [],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "email",
-                                    "password",
-                                    "device_name"
-                                ],
-                                "properties": {
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email"
-                                    },
-                                    "password": {
-                                        "type": "string",
-                                        "format": "password"
-                                    },
-                                    "device_name": {
-                                        "type": "string",
-                                        "example": "iPhone 15"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Token",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "token": {
-                                            "type": "string"
-                                        },
-                                        "user": {
-                                            "type": "object"
-                                        },
-                                        "workspace": {
-                                            "type": "object"
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                "properties": {
+                  "start_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "type": {
+                    "type": "string",
+                    "example": "annual"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/reminders": {
+      "get": {
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "List reminders",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Reminder"
+                      }
                     },
-                    "422": {
-                        "description": "Validation error"
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
                     }
+                  }
                 }
+              }
             }
-        },
-        "/api/logout": {
-            "post": {
-                "tags": [
-                    "Auth"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Create reminder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "contact_id",
+                  "title",
+                  "remind_at"
                 ],
-                "summary": "Revoke token (logout)",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthenticated"
-                    }
+                "properties": {
+                  "contact_id": {
+                    "type": "integer"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "remind_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
                 }
+              }
             }
+          }
         },
-        "/api/user": {
-            "get": {
-                "tags": [
-                    "User"
-                ],
-                "summary": "Get current user and workspace context",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "user": {
-                                            "type": "object"
-                                        },
-                                        "current_workspace": {
-                                            "type": "object"
-                                        },
-                                        "workspaces": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
                 }
+              }
             }
-        },
-        "/api/contacts": {
-            "get": {
-                "tags": [
-                    "Contacts"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/reminders/{id}": {
+      "get": {
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Get reminder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Update reminder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Delete reminder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/dashboard/summary": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Financial KPI summary (revenue, expenses, overdues)",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/calendar": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Upcoming events (due invoices, reminders, leave)",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/contacts": {
+      "post": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Bulk import phone contacts from mobile device",
+        "description": "Upserts by last-8-digit phone match. Skips soft-deleted. Rate-limited 10/min.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "contacts"
                 ],
-                "summary": "List contacts",
-                "parameters": [
-                    {
-                        "name": "phone",
-                        "in": "query",
-                        "schema": {
-                            "type": "string"
+                "properties": {
+                  "contacts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "phone"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string"
                         },
-                        "description": "Filter by mobile_number"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/Contact"
-                                            }
-                                        },
-                                        "meta": {
-                                            "$ref": "#/components/schemas/PaginationMeta"
-                                        }
-                                    }
-                                }
-                            }
+                        "phone": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string",
+                          "nullable": true
                         }
+                      }
                     }
+                  }
                 }
-            },
-            "post": {
-                "tags": [
-                    "Contacts"
-                ],
-                "summary": "Create contact",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "name"
-                                ],
-                                "properties": {
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "company_name": {
-                                        "type": "string",
-                                        "nullable": true
-                                    },
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email",
-                                        "nullable": true
-                                    },
-                                    "mobile_number": {
-                                        "type": "string"
-                                    },
-                                    "contact_type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "customer",
-                                            "supplier",
-                                            "lead"
-                                        ]
-                                    },
-                                    "vat_number": {
-                                        "type": "string",
-                                        "nullable": true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Contact"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
+              }
             }
+          }
         },
-        "/api/contacts/lookup": {
-            "get": {
-                "tags": [
-                    "Contacts"
-                ],
-                "summary": "Lookup contact by phone (last 8 digits match)",
-                "parameters": [
-                    {
-                        "name": "phone",
-                        "in": "query",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Contact"
-                                }
-                            }
-                        }
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
                     },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            }
-        },
-        "/api/contacts/lookup-or-create": {
-            "post": {
-                "tags": [
-                    "Contacts"
-                ],
-                "summary": "Lookup or create contact by phone",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "phone"
-                                ],
-                                "properties": {
-                                    "phone": {
-                                        "type": "string"
-                                    },
-                                    "name": {
-                                        "type": "string",
-                                        "nullable": true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Contact"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/contacts/{id}": {
-            "get": {
-                "tags": [
-                    "Contacts"
-                ],
-                "summary": "Get contact",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Contact"
-                                }
-                            }
-                        }
+                    "imported": {
+                      "type": "integer"
                     },
-                    "404": {
-                        "description": "Not found"
+                    "updated": {
+                      "type": "integer"
                     }
+                  }
                 }
-            },
-            "put": {
-                "tags": [
-                    "Contacts"
-                ],
-                "summary": "Update contact",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Contact"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Contacts"
-                ],
-                "summary": "Delete contact",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Deleted"
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
+              }
             }
-        },
-        "/api/contacts/{id}/history": {
-            "get": {
-                "tags": [
-                    "Contacts"
-                ],
-                "summary": "Get contact financial history",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/contacts/{id}/call-logs": {
-            "post": {
-                "tags": [
-                    "Contacts"
-                ],
-                "summary": "Log a call (Legacy: requires contact ID)",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "call_type"
-                                ],
-                                "properties": {
-                                    "call_type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "inbound",
-                                            "outbound",
-                                            "missed",
-                                            "incoming",
-                                            "outgoing"
-                                        ]
-                                    },
-                                    "call_date": {
-                                        "type": "string",
-                                        "format": "date-time"
-                                    },
-                                    "call_duration_seconds": {
-                                        "type": "integer",
-                                        "nullable": true
-                                    },
-                                    "call_notes": {
-                                        "type": "string",
-                                        "nullable": true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/contacts/{id}/reminders": {
-            "post": {
-                "tags": [
-                    "Contacts"
-                ],
-                "summary": "Add reminder for contact",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "title",
-                                    "remind_at"
-                                ],
-                                "properties": {
-                                    "title": {
-                                        "type": "string"
-                                    },
-                                    "remind_at": {
-                                        "type": "string",
-                                        "format": "date-time"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Reminder"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/invoices": {
-            "get": {
-                "tags": [
-                    "Invoices"
-                ],
-                "summary": "List invoices (paginated 30/page)",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/Invoice"
-                                            }
-                                        },
-                                        "meta": {
-                                            "$ref": "#/components/schemas/PaginationMeta"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "Invoices"
-                ],
-                "summary": "Create invoice",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "contact_id",
-                                    "date",
-                                    "items"
-                                ],
-                                "properties": {
-                                    "contact_id": {
-                                        "type": "integer"
-                                    },
-                                    "date": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "due_date": {
-                                        "type": "string",
-                                        "format": "date",
-                                        "nullable": true
-                                    },
-                                    "discount": {
-                                        "type": "number",
-                                        "nullable": true
-                                    },
-                                    "notes": {
-                                        "type": "string",
-                                        "nullable": true
-                                    },
-                                    "items": {
-                                        "type": "array",
-                                        "items": {
-                                            "$ref": "#/components/schemas/InvoiceItem"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Invoice"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/invoices/{id}": {
-            "get": {
-                "tags": [
-                    "Invoices"
-                ],
-                "summary": "Get invoice with payments, VAT breakdown and attachments",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Invoice"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Invoices"
-                ],
-                "summary": "Delete invoice",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Deleted"
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            }
-        },
-        "/api/invoices/{id}/download": {
-            "get": {
-                "tags": [
-                    "Invoices"
-                ],
-                "summary": "Download invoice PDF (rate-limited 10/min)",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "PDF",
-                        "content": {
-                            "application/pdf": {}
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            }
-        },
-        "/api/quotes": {
-            "get": {
-                "tags": [
-                    "Quotes"
-                ],
-                "summary": "List quotes",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/Quote"
-                                            }
-                                        },
-                                        "meta": {
-                                            "$ref": "#/components/schemas/PaginationMeta"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "Quotes"
-                ],
-                "summary": "Create quote",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "contact_id",
-                                    "date",
-                                    "valid_until",
-                                    "items"
-                                ],
-                                "properties": {
-                                    "contact_id": {
-                                        "type": "integer"
-                                    },
-                                    "date": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "valid_until": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "discount": {
-                                        "type": "number",
-                                        "nullable": true
-                                    },
-                                    "notes": {
-                                        "type": "string",
-                                        "nullable": true
-                                    },
-                                    "items": {
-                                        "type": "array",
-                                        "items": {
-                                            "$ref": "#/components/schemas/InvoiceItem"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Quote"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/quotes/{id}": {
-            "get": {
-                "tags": [
-                    "Quotes"
-                ],
-                "summary": "Get quote",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Quote"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "Quotes"
-                ],
-                "summary": "Update quote (draft only)",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Quote"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Quotes"
-                ],
-                "summary": "Delete quote",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Deleted"
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            }
-        },
-        "/api/quotes/{id}/download": {
-            "get": {
-                "tags": [
-                    "Quotes"
-                ],
-                "summary": "Download quote PDF",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "PDF",
-                        "content": {
-                            "application/pdf": {}
-                        }
-                    }
-                }
-            }
-        },
-        "/api/expenses": {
-            "get": {
-                "tags": [
-                    "Expenses"
-                ],
-                "summary": "List expenses",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/Expense"
-                                            }
-                                        },
-                                        "meta": {
-                                            "$ref": "#/components/schemas/PaginationMeta"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "Expenses"
-                ],
-                "summary": "Create expense",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "description",
-                                    "amount",
-                                    "expense_date"
-                                ],
-                                "properties": {
-                                    "description": {
-                                        "type": "string"
-                                    },
-                                    "amount": {
-                                        "type": "number"
-                                    },
-                                    "expense_date": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "category": {
-                                        "type": "string",
-                                        "nullable": true
-                                    },
-                                    "notes": {
-                                        "type": "string",
-                                        "nullable": true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Expense"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/expenses/{id}": {
-            "get": {
-                "tags": [
-                    "Expenses"
-                ],
-                "summary": "Get expense",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Expense"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "Expenses"
-                ],
-                "summary": "Update expense",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Expense"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Expenses"
-                ],
-                "summary": "Delete expense",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Deleted"
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            }
-        },
-        "/api/products": {
-            "get": {
-                "tags": [
-                    "Products"
-                ],
-                "summary": "List products",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/Product"
-                                            }
-                                        },
-                                        "meta": {
-                                            "$ref": "#/components/schemas/PaginationMeta"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "Products"
-                ],
-                "summary": "Create product",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "name",
-                                    "unit_price_net",
-                                    "vat_rate"
-                                ],
-                                "properties": {
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "sku": {
-                                        "type": "string",
-                                        "nullable": true
-                                    },
-                                    "unit_price_net": {
-                                        "type": "number"
-                                    },
-                                    "vat_rate": {
-                                        "type": "number",
-                                        "example": 19
-                                    },
-                                    "product_type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "physical",
-                                            "service",
-                                            "digital"
-                                        ]
-                                    },
-                                    "current_stock": {
-                                        "type": "number",
-                                        "nullable": true
-                                    },
-                                    "purchase_price": {
-                                        "type": "number",
-                                        "nullable": true
-                                    },
-                                    "status": {
-                                        "type": "string",
-                                        "enum": [
-                                            "active",
-                                            "inactive",
-                                            "discontinued"
-                                        ]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Product"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/products/{id}": {
-            "get": {
-                "tags": [
-                    "Products"
-                ],
-                "summary": "Get product",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Product"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "Products"
-                ],
-                "summary": "Update product",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Product"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Products"
-                ],
-                "summary": "Delete product",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Deleted"
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            }
-        },
-        "/api/products/{id}/adjust-stock": {
-            "post": {
-                "tags": [
-                    "Products"
-                ],
-                "summary": "Adjust stock (in/out)",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "quantity",
-                                    "direction",
-                                    "movement_type"
-                                ],
-                                "properties": {
-                                    "quantity": {
-                                        "type": "integer",
-                                        "minimum": 1
-                                    },
-                                    "direction": {
-                                        "type": "string",
-                                        "enum": [
-                                            "in",
-                                            "out"
-                                        ]
-                                    },
-                                    "movement_type": {
-                                        "type": "string",
-                                        "example": "purchase"
-                                    },
-                                    "notes": {
-                                        "type": "string",
-                                        "nullable": true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {
-                                            "type": "string"
-                                        },
-                                        "current_stock": {
-                                            "type": "number"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Insufficient stock"
-                    }
-                }
-            }
-        },
-        "/api/staff": {
-            "get": {
-                "tags": [
-                    "Staff"
-                ],
-                "summary": "List staff members",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/StaffMember"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/staff/on-leave-today": {
-            "get": {
-                "tags": [
-                    "Staff"
-                ],
-                "summary": "Staff on approved leave today",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/StaffMember"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/staff/{id}": {
-            "get": {
-                "tags": [
-                    "Staff"
-                ],
-                "summary": "Get staff member",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/StaffMember"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            }
-        },
-        "/api/staff/{id}/leave": {
-            "get": {
-                "tags": [
-                    "Staff"
-                ],
-                "summary": "Get leave requests",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "Staff"
-                ],
-                "summary": "Submit leave request",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "start_date",
-                                    "end_date",
-                                    "type"
-                                ],
-                                "properties": {
-                                    "start_date": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "end_date": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "type": {
-                                        "type": "string",
-                                        "example": "annual"
-                                    },
-                                    "reason": {
-                                        "type": "string",
-                                        "nullable": true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/reminders": {
-            "get": {
-                "tags": [
-                    "Reminders"
-                ],
-                "summary": "List reminders",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/Reminder"
-                                            }
-                                        },
-                                        "meta": {
-                                            "$ref": "#/components/schemas/PaginationMeta"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "Reminders"
-                ],
-                "summary": "Create reminder",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "contact_id",
-                                    "title",
-                                    "remind_at"
-                                ],
-                                "properties": {
-                                    "contact_id": {
-                                        "type": "integer"
-                                    },
-                                    "title": {
-                                        "type": "string"
-                                    },
-                                    "remind_at": {
-                                        "type": "string",
-                                        "format": "date-time"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Reminder"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/reminders/{id}": {
-            "get": {
-                "tags": [
-                    "Reminders"
-                ],
-                "summary": "Get reminder",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Reminder"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "Reminders"
-                ],
-                "summary": "Update reminder",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Reminder"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Reminders"
-                ],
-                "summary": "Delete reminder",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Deleted"
-                    },
-                    "404": {
-                        "description": "Not found"
-                    }
-                }
-            }
-        },
-        "/api/dashboard/summary": {
-            "get": {
-                "tags": [
-                    "Dashboard"
-                ],
-                "summary": "Financial KPI summary (revenue, expenses, overdues)",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/dashboard/calendar": {
-            "get": {
-                "tags": [
-                    "Dashboard"
-                ],
-                "summary": "Upcoming events (due invoices, reminders, leave)",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/sync/contacts": {
-            "post": {
-                "tags": [
-                    "Sync"
-                ],
-                "summary": "Bulk import phone contacts from mobile device",
-                "description": "Upserts by last-8-digit phone match. Skips soft-deleted. Rate-limited 10/min.",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "contacts"
-                                ],
-                                "properties": {
-                                    "contacts": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "required": [
-                                                "name",
-                                                "phone"
-                                            ],
-                                            "properties": {
-                                                "name": {
-                                                    "type": "string"
-                                                },
-                                                "phone": {
-                                                    "type": "string"
-                                                },
-                                                "email": {
-                                                    "type": "string",
-                                                    "nullable": true
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {
-                                            "type": "string"
-                                        },
-                                        "imported": {
-                                            "type": "integer"
-                                        },
-                                        "updated": {
-                                            "type": "integer"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/sync/logs": {
-            "post": {
-                "tags": [
-                    "Sync"
-                ],
-                "summary": "Bulk import call logs from mobile device",
-                "description": "Deduplicates by phone+date+type. Accepts Unix timestamps (ms or s). incoming/outgoing aliases accepted.",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "logs"
-                                ],
-                                "properties": {
-                                    "logs": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "required": [
-                                                "phone",
-                                                "date"
-                                            ],
-                                            "properties": {
-                                                "phone": {
-                                                    "type": "string"
-                                                },
-                                                "type": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "inbound",
-                                                        "outbound",
-                                                        "missed",
-                                                        "incoming",
-                                                        "outgoing"
-                                                    ],
-                                                    "nullable": true
-                                                },
-                                                "duration": {
-                                                    "type": "integer",
-                                                    "description": "Seconds",
-                                                    "nullable": true
-                                                },
-                                                "date": {
-                                                    "type": "string",
-                                                    "description": "ISO 8601 or Unix timestamp"
-                                                },
-                                                "notes": {
-                                                    "type": "string",
-                                                    "nullable": true
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {
-                                            "type": "string"
-                                        },
-                                        "processed": {
-                                            "type": "integer"
-                                        },
-                                        "skipped": {
-                                            "type": "integer"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/sync/call-event": {
-            "post": {
-                "tags": [
-                    "Sync"
-                ],
-                "summary": "Real-time sync for single call event",
-                "description": "Automatically identifies/creates contact by phone and logs the call. Ideal for immediate per-call mobile sync.",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "phone"
-                                ],
-                                "properties": {
-                                    "phone": {
-                                        "type": "string"
-                                    },
-                                    "type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "inbound",
-                                            "outbound",
-                                            "missed",
-                                            "incoming",
-                                            "outgoing"
-                                        ]
-                                    },
-                                    "duration": {
-                                        "type": "integer"
-                                    },
-                                    "date": {
-                                        "type": "string",
-                                        "description": "UNIX or ISO"
-                                    },
-                                    "notes": {
-                                        "type": "string",
-                                        "nullable": true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/banking/sync": {
-            "post": {
-                "tags": [
-                    "Banking"
-                ],
-                "summary": "Trigger bank sync for all active connections (rate-limited 5/min)",
-                "description": "Returns immediately. Sync runs asynchronously via queue.",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Sync queued."
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
         }
+      }
+    },
+    "/api/sync/logs": {
+      "post": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Bulk import call logs from mobile device",
+        "description": "Deduplicates by phone+date+type. Accepts Unix timestamps (ms or s). incoming/outgoing aliases accepted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "logs"
+                ],
+                "properties": {
+                  "logs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "phone",
+                        "date"
+                      ],
+                      "properties": {
+                        "phone": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "inbound",
+                            "outbound",
+                            "missed",
+                            "incoming",
+                            "outgoing"
+                          ],
+                          "nullable": true
+                        },
+                        "duration": {
+                          "type": "integer",
+                          "description": "Seconds",
+                          "nullable": true
+                        },
+                        "date": {
+                          "type": "string",
+                          "description": "ISO 8601 or Unix timestamp"
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "processed": {
+                      "type": "integer"
+                    },
+                    "skipped": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/sync/call-event": {
+      "post": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Real-time sync for single call event",
+        "description": "Automatically identifies/creates contact by phone and logs the call. Ideal for immediate per-call mobile sync.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "inbound",
+                      "outbound",
+                      "missed",
+                      "incoming",
+                      "outgoing"
+                    ]
+                  },
+                  "duration": {
+                    "type": "integer"
+                  },
+                  "date": {
+                    "type": "string",
+                    "description": "UNIX or ISO"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/banking/sync": {
+      "post": {
+        "tags": [
+          "Banking"
+        ],
+        "summary": "Trigger bank sync for all active connections (rate-limited 5/min)",
+        "description": "Returns immediately. Sync runs asynchronously via queue.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Sync queued."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
+  }
 }

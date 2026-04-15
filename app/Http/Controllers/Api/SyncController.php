@@ -222,4 +222,77 @@ class SyncController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 400);
         }
     }
+
+    /**
+     * Real-time sync for a single call event.
+     * Use this when a call ends on the mobile device for instant updates.
+     */
+    public function syncCallEvent(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'phone' => 'required|string',
+                'type' => 'nullable|string',
+                'duration' => 'nullable|integer',
+                'date' => 'nullable', // Flexible format (UNIX or ISO)
+                'notes' => 'nullable|string',
+                'call_notes' => 'nullable|string',
+            ]);
+
+            $workspaceId = $this->getWorkspaceId();
+            $phone = $validated['phone'];
+            $normalizedPhone = preg_replace('/[^0-9]/', '', $phone);
+            $suffix = substr($normalizedPhone, -8);
+
+            $contact = Contact::withTrashed()->where('workspace_id', $workspaceId)
+                ->whereRaw("REPLACE(REPLACE(mobile_number, ' ', ''), '+', '') LIKE ?", ["%{$suffix}"])
+                ->first();
+
+            if (!$contact) {
+                $contact = Contact::create([
+                    'workspace_id' => $workspaceId,
+                    'name' => "Unknown Caller ({$phone})",
+                    'mobile_number' => $phone,
+                    'contact_type' => 'customer'
+                ]);
+            } elseif ($contact->trashed()) {
+                return response()->json(['status' => 'ignored', 'message' => 'Contact is in trash.'], 200);
+            }
+
+            // Parse Date
+            $inputDate = $validated['date'] ?? now();
+            if (is_numeric($inputDate)) {
+                if ($inputDate > 10000000000) $inputDate = (int) ($inputDate / 1000);
+                $logDate = Carbon::createFromTimestamp($inputDate);
+            } else {
+                $logDate = Carbon::parse($inputDate);
+            }
+
+            $type = strtolower($validated['type'] ?? 'inbound');
+            if ($type === 'incoming') $type = 'inbound';
+            if ($type === 'outgoing') $type = 'outbound';
+
+            $log = CallLog::create([
+                'contact_id' => $contact->id,
+                'call_type' => $type,
+                'call_duration_seconds' => $validated['duration'] ?? 0,
+                'call_date' => $logDate->toDateTimeString(),
+                'call_notes' => $validated['call_notes'] ?? ($validated['notes'] ?? null),
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Event logged',
+                'log_id' => $log->id,
+                'contact' => [
+                    'id' => $contact->id,
+                    'name' => $contact->name
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            Log::error("Real-time Call Event Failed: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 400);
+        }
+    }
 }
