@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Bank Transactions Report</title>
+    <style>
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 11px; color: #333; line-height: 1.4; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; }
+        .header h1 { margin: 0; color: #4f46e5; font-size: 20px; text-transform: uppercase; }
+        .header p { margin: 5px 0 0; color: #666; font-size: 12px; }
+        
+        .company-info { margin-bottom: 20px; }
+        .company-info table { width: 100%; }
+        
+        .summary-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+        .summary-box table { width: 100%; }
+        .summary-box td { font-weight: bold; font-size: 13px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #4f46e5; color: white; padding: 8px; text-align: left; text-transform: uppercase; font-size: 9px; }
+        td { border-bottom: 1px solid #e2e8f0; padding: 8px; vertical-align: top; }
+        
+        .amount { text-align: right; font-family: 'Courier', monospace; }
+        .positive { color: #059669; }
+        .negative { color: #dc2626; }
+        
+        .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 9px; color: #94a3b8; padding: 10px 0; border-top: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Bank Transactions Detail</h1>
+        <p>{{ $monthLabel }}</p>
+    </div>
+
+    <div class="company-info">
+        <table>
+            <tr>
+                <td style="border:none; padding:0;">
+                    <strong>{{ $workspace->company_name }}</strong><br>
+                    {!! nl2br(e($workspace->address)) !!}<br>
+                    VAT: {{ $workspace->vat_number }}
+                </td>
+                <td style="border:none; padding:0; text-align:right;">
+                    Report Generated: {{ now()->format('d/m/Y H:i') }}<br>
+                    Currency: {{ $workspace->currency ?? 'EUR' }}
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="summary-box">
+        <table>
+            <tr>
+                <td>Total Inflow: <span class="positive">{{ number_format($transactions->where('amount', '>', 0)->sum('amount'), 2) }}</span></td>
+                <td>Total Outflow: <span class="negative">{{ number_format($transactions->where('amount', '<', 0)->sum('amount'), 2) }}</span></td>
+                <td style="text-align:right;">Net Movement: 
+                    <span class="{{ $transactions->sum('amount') >= 0 ? 'positive' : 'negative' }}">
+                        {{ number_format($transactions->sum('amount'), 2) }} {{ $workspace->currency ?? 'EUR' }}
+                    </span>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th width="15%">Date</th>
+                <th width="15%">Provider</th>
+                <th width="40%">Description / Reference</th>
+                <th width="15%">Account/Card</th>
+                <th width="15%" class="amount">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($transactions as $tx)
+                <tr>
+                    <td>{{ $tx->transaction_date->format('d/m/Y H:i') }}</td>
+                    <td>{{ ucfirst($tx->provider) }}</td>
+                    <td>
+                        {{ $tx->description ?: 'No description' }}
+                        @if($tx->reference)
+                            <br><small style="color:#666">Ref: {{ $tx->reference }}</small>
+                        @endif
+                        @if($tx->linked_type)
+                            <br><small style="color:#4f46e5; border: 1px solid #4f46e5; padding: 1px 3px; border-radius: 3px; font-size: 8px;">
+                                Reconciled to {{ ucfirst($tx->linked_type) }} #{{ $tx->linked_id }}
+                            </small>
+                        @endif
+                    </td>
+                    <td>
+                        {{ $tx->connection->label ?? 'N/A' }}
+                        @if($tx->card_last4)
+                            <br><small>**** {{ $tx->card_last4 }} ({{ $tx->card_type }})</small>
+                        @endif
+                    </td>
+                    <td class="amount {{ $tx->amount >= 0 ? 'positive' : 'negative' }}">
+                        {{ number_format($tx->amount, 2) }}
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="5" style="text-align:center; padding: 20px; color: #94a3b8;">No transactions found for this period.</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    <div class="footer">
+        Page auto-generated by {{ config('app.name') }} Reporting Engine
+    </div>
+</body>
+</html>
