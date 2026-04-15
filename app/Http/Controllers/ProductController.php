@@ -6,18 +6,26 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\StockMovement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class ProductController extends Controller
 {
+    private function workspaceId(): int
+    {
+        return Auth::user()->workspaces()->first()->id;
+    }
+
     public function index(Request $request)
     {
+        $workspaceId = $this->workspaceId();
+
         $query = Product::with([
             'category',
             'invoiceItems' => function ($q) {
                 $q->whereDate('created_at', now())->with('invoice');
             }
-        ]);
+        ])->where('workspace_id', $workspaceId);
 
         if ($request->search) {
             $query->where(function ($q) use ($request) {
@@ -30,7 +38,6 @@ class ProductController extends Controller
             $query->where('product_category_id', $request->category_id);
         }
 
-        // Sorting
         $sortField = $request->get('sort', 'name');
         $sortDirection = $request->get('direction', 'asc');
         $allowedSorts = ['name', 'sku', 'current_stock', 'unit_price_gross', 'created_at'];
@@ -42,9 +49,9 @@ class ProductController extends Controller
         }
 
         return Inertia::render('Products/Index', [
-            'products' => $query->paginate(24)->withQueryString(),
+            'products'   => $query->paginate(24)->withQueryString(),
             'categories' => ProductCategory::all(),
-            'filters' => $request->only(['search', 'category_id', 'sort', 'direction'])
+            'filters'    => $request->only(['search', 'category_id', 'sort', 'direction'])
         ]);
     }
 
@@ -57,26 +64,30 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
+        $workspaceId = $this->workspaceId();
+
         $validated = $request->validate([
-            'name' => 'required|string',
-            'sku' => 'nullable|string|unique:products,sku',
-            'product_type' => 'required|in:physical,service',
+            'name'                => 'required|string',
+            'sku'                 => 'nullable|string|unique:products,sku',
+            'product_type'        => 'required|in:physical,service',
             'product_category_id' => 'nullable|exists:product_categories,id',
-            'unit_price_gross' => 'required|numeric|min:0',
-            'vat_rate' => 'required|numeric|min:0',
-            'current_stock' => 'required|numeric|min:0',
-            'purchase_price' => 'nullable|numeric|min:0',
-            'acquisition_date' => 'nullable|date',
+            'unit_price_gross'    => 'required|numeric|min:0',
+            'vat_rate'            => 'required|numeric|min:0',
+            'current_stock'       => 'required|numeric|min:0',
+            'purchase_price'      => 'nullable|numeric|min:0',
+            'acquisition_date'    => 'nullable|date',
         ]);
 
-        Product::create($validated);
+        Product::create(array_merge($validated, ['workspace_id' => $workspaceId]));
 
         return redirect()->route('products.index')->with('success', 'Product added successfully!');
     }
 
     public function show($id)
     {
-        $product = Product::with([
+        $workspaceId = $this->workspaceId();
+
+        $product = Product::where('workspace_id', $workspaceId)->with([
             'category',
             'stockMovements' => function ($q) {
                 $q->orderBy('created_at', 'desc')->limit(20);
@@ -90,27 +101,30 @@ class ProductController extends Controller
 
     public function edit($id)
     {
-        $product = Product::findOrFail($id);
+        $workspaceId = $this->workspaceId();
+        $product = Product::where('workspace_id', $workspaceId)->findOrFail($id);
+
         return Inertia::render('Products/Edit', [
-            'product' => $product,
+            'product'    => $product,
             'categories' => ProductCategory::all()
         ]);
     }
 
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $workspaceId = $this->workspaceId();
+        $product = Product::where('workspace_id', $workspaceId)->findOrFail($id);
 
         $validated = $request->validate([
-            'name' => 'required|string',
-            'sku' => "nullable|string|unique:products,sku,{$id}",
-            'product_type' => 'required|in:physical,service',
+            'name'                => 'required|string',
+            'sku'                 => "nullable|string|unique:products,sku,{$id}",
+            'product_type'        => 'required|in:physical,service',
             'product_category_id' => 'nullable|exists:product_categories,id',
-            'unit_price_gross' => 'required|numeric|min:0',
-            'vat_rate' => 'required|numeric|min:0',
-            'current_stock' => 'required|numeric|min:0',
-            'purchase_price' => 'nullable|numeric|min:0',
-            'acquisition_date' => 'nullable|date',
+            'unit_price_gross'    => 'required|numeric|min:0',
+            'vat_rate'            => 'required|numeric|min:0',
+            'current_stock'       => 'required|numeric|min:0',
+            'purchase_price'      => 'nullable|numeric|min:0',
+            'acquisition_date'    => 'nullable|date',
         ]);
 
         $product->update($validated);
@@ -118,10 +132,10 @@ class ProductController extends Controller
         return redirect()->route('products.index')->with('success', 'Product updated successfully!');
     }
 
-
     public function destroy($id)
     {
-        $product = Product::findOrFail($id);
+        $workspaceId = $this->workspaceId();
+        $product = Product::where('workspace_id', $workspaceId)->findOrFail($id);
         $product->delete();
 
         return redirect()->route('products.index')->with('success', 'Product removed from inventory.');
@@ -129,23 +143,24 @@ class ProductController extends Controller
 
     public function adjustStock(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $workspaceId = $this->workspaceId();
+        $product = Product::where('workspace_id', $workspaceId)->findOrFail($id);
 
         $validated = $request->validate([
-            'quantity' => 'required|numeric|min:0.01',
-            'direction' => 'required|in:in,out',
+            'quantity'      => 'required|numeric|min:0.01',
+            'direction'     => 'required|in:in,out',
             'movement_type' => 'required|string',
-            'notes' => 'nullable|string'
+            'notes'         => 'nullable|string'
         ]);
 
         $quantity = $validated['direction'] === 'in' ? $validated['quantity'] : -$validated['quantity'];
 
         StockMovement::create([
-            'product_id' => $product->id,
-            'quantity' => $quantity,
-            'direction' => $validated['direction'],
+            'product_id'    => $product->id,
+            'quantity'      => $quantity,
+            'direction'     => $validated['direction'],
             'movement_type' => $validated['movement_type'],
-            'notes' => $validated['notes']
+            'notes'         => $validated['notes']
         ]);
 
         $product->increment('current_stock', $quantity);
@@ -155,12 +170,13 @@ class ProductController extends Controller
 
     public function updatePartial(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $workspaceId = $this->workspaceId();
+        $product = Product::where('workspace_id', $workspaceId)->findOrFail($id);
 
         $validated = $request->validate([
-            'sku' => "nullable|string|unique:products,sku,{$id}",
+            'sku'              => "nullable|string|unique:products,sku,{$id}",
             'unit_price_gross' => 'nullable|numeric|min:0',
-            'name' => 'nullable|string'
+            'name'             => 'nullable|string'
         ]);
 
         $product->update($validated);
@@ -168,18 +184,18 @@ class ProductController extends Controller
         return redirect()->back()->with('success', 'Asset attributes updated.');
     }
 
-    public function movements(\Illuminate\Http\Request $request, $id)
+    public function movements(Request $request, $id)
     {
-        $workspaceId = \Illuminate\Support\Facades\Auth::user()->workspaces()->first()->id;
-        $product = \App\Models\Product::where('workspace_id', $workspaceId)->findOrFail($id);
-        $movements = \App\Models\StockMovement::where('product_id', $product->id)
+        $workspaceId = $this->workspaceId();
+        $product = Product::where('workspace_id', $workspaceId)->findOrFail($id);
+
+        $movements = StockMovement::where('product_id', $product->id)
             ->orderByDesc('created_at')
             ->paginate(50);
 
-        return \Inertia\Inertia::render('Products/Movements', [
+        return Inertia::render('Products/Movements', [
             'product'   => $product,
             'movements' => $movements,
         ]);
     }
-
 }
