@@ -39,7 +39,7 @@
 <body>
     <div class="header">
         <h1>Payroll Liability Summary</h1>
-        <p>{{ $workspace->name }} &bull; {{ $monthLabel }}</p>
+        <p>{{ $workspace->company_name }} &bull; {{ $monthLabel }}</p>
     </div>
 
     <div class="section">
@@ -57,7 +57,7 @@
                 <div>€{{ number_format($providentTotal, 2) }}</div>
             </div>
             <div class="summary-card">
-                <h3>Other ER Funds</h3>
+                <h3>Holiday / Other</h3>
                 <div>€{{ number_format($otherTotal, 2) }}</div>
             </div>
             <div class="summary-card">
@@ -88,7 +88,6 @@
                     <tr>
                         <td><strong>{{ $exp->vendor_name }}</strong></td>
                         <td>€{{ number_format($exp->gross_salary, 2) }}</td>
-                        <td>
                         <td>
                             €{{ number_format(($exp->si_employee ?? 0) + ($exp->si_employer ?? 0), 2) }}
                             <div class="subtext">EE: {{ number_format($exp->si_employee ?? 0, 2) }} | ER: {{ number_format($exp->si_employer ?? 0, 2) }}</div>
@@ -217,7 +216,7 @@
     </div>
 
     <div class="footer">
-        Generated on {{ now()->format('d/m/Y H:i') }} &bull; Chrysler Payroll Engine &bull; {{ $workspace->name }}
+        Generated on {{ now()->format('d/m/Y H:i') }} &bull; Payroll Engine &bull; {{ $workspace->company_name }}
     </div>
 </body>
 </html>

@@ -207,9 +207,11 @@ class ReportController extends Controller
         $taxTotal  = $expenses->sum(fn ($e) => ($e->tax_employee ?? 0));
         $unionTotal = $expenses->sum(fn ($e) => ($e->union_amount ?? 0));
 
+        $holidayTotal = $otherTotal; // Alias for blade template
+
         $pdf = Pdf::loadView('pdf.monthly-payroll', compact(
             'expenses', 'workspace', 'monthLabel',
-            'siTotal', 'gesiTotal', 'providentTotal', 'otherTotal', 'taxTotal', 'unionTotal'
+            'siTotal', 'gesiTotal', 'providentTotal', 'otherTotal', 'taxTotal', 'unionTotal', 'holidayTotal'
         ))->setPaper('a4', 'portrait');
 
         return $pdf->download("Payroll-Liability-{$year}-{$month}.pdf");
@@ -320,16 +322,18 @@ class ReportController extends Controller
             $unionTotal = $payrollExpenses->sum(fn ($e) => ($e->union_amount ?? 0));
             $expenses  = $payrollExpenses; // Re-use the variable for the PDF template logic
             
+            $holidayTotal = $otherTotal; // Alias for blade template
             $pdfPayroll = Pdf::loadView('pdf.monthly-payroll', [
-                'expenses'   => $payrollExpenses, 
-                'workspace'  => $workspace, 
-                'monthLabel' => $monthLabel,
-                'siTotal'    => $siTotal, 
-                'gesiTotal'  => $gesiTotal, 
+                'expenses'      => $payrollExpenses, 
+                'workspace'     => $workspace, 
+                'monthLabel'    => $monthLabel,
+                'siTotal'       => $siTotal, 
+                'gesiTotal'     => $gesiTotal, 
                 'providentTotal' => $providentTotal,
-                'otherTotal' => $otherTotal,
-                'taxTotal'   => $taxTotal,
-                'unionTotal' => $unionTotal
+                'otherTotal'    => $otherTotal,
+                'holidayTotal'  => $holidayTotal,
+                'taxTotal'      => $taxTotal,
+                'unionTotal'    => $unionTotal
             ])->setPaper('a4', 'portrait');
             $zip->addFromString("Summary_Payroll_Liabilities.pdf", $pdfPayroll->output());
         }
