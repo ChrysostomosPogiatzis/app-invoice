@@ -3,7 +3,7 @@
     "info": {
         "title": "Witbo Business API",
         "version": "1.0.0",
-        "description": "All endpoints except POST /api/login require a Bearer token. All data is scoped to the authenticated workspace.\n\n### Mobile App Onboarding\nInstead of manual login, the mobile app connects by scanning a QR Code generated in the **Settings -> Developer & API Infrastructure** dashboard. The QR code contains a JSON payload mapping to the `QRAuthPayload` schema.",
+        "description": "All endpoints except POST /api/login require a Bearer token. All data is scoped to the authenticated workspace.\n\n### Mobile App Onboarding\nInstead of manual login, the mobile app connects by scanning a QR Code generated in the **Settings -> Developer & API Infrastructure** dashboard.\n\n**What the QR Code contains:**\nThe QR code encodes a raw JSON string with the API Base URL and the newly generated API token. The mobile app must parse this JSON to configure its HTTP client.\n\n```json\n{\n  \"url\": \"https://call.witbo.com.cy/api\",\n  \"token\": \"1|abcdef1234567890qwertyuiop\"\n}\n```",
         "contact": {
             "email": "support@witbo.com.cy"
         }
