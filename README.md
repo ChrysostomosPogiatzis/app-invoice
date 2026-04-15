@@ -1,59 +1,210 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Witbo — Business Management Platform
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+> A multi-tenant SaaS platform for Cyprus-based small and medium businesses.  
+> Built with Laravel 12, Vue 3, and Inertia.js.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Overview
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Witbo is a full-featured business management platform with a strong focus on **Cyprus compliance** —
+including local payroll calculations, VAT invoicing, and PSD2 banking integrations with Bank of Cyprus and Eurobank.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Each business operates in an isolated **workspace** (tenant), with role-based access, tier-based feature gating, and a billing system powered by myPOS.
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Tech Stack
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+| Layer | Technology |
+|---|---|
+| Backend | PHP 8.4 · Laravel 12 |
+| Frontend | Vue 3 · Inertia.js · TypeScript |
+| Build | Vite 7 |
+| Database | MySQL (Eloquent ORM) |
+| Auth | Laravel Breeze + Sanctum (API tokens) |
+| PDF | barryvdh/laravel-dompdf |
+| Queues | Laravel Queue (database driver) |
+| Banking | Bank of Cyprus PSD2 + Eurobank PSD2 + myPOS |
 
-## Laravel Sponsors
+---
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Features
 
-### Premium Partners
+### 💼 Invoicing & Quotes
+- Create, edit, void and issue credit notes on invoices
+- Serial number integrity (void preserves the number sequence)
+- PDF generation & email delivery
+- Public shareable invoice links
+- Quote-to-invoice conversion
+- Multi-currency support
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### 📊 Expenses & Payroll (Cyprus)
+Full Cyprus payroll calculation engine:
+- **Social Insurance (SI)** — employee & employer contributions
+- **GESI** — General Health System contributions
+- **Provident Fund** — configurable per-employee rates
+- **Social Cohesion Fund**
+- **Redundancy Fund & Training Fund**
+- **Holiday Fund**
+- **Union contributions**
+- **Income tax (PAYE)**
+- Payslip PDF generation per employee
 
-## Contributing
+### 👤 Staff Management
+- Staff profiles with full HR data (ID, tax, IBAN, SI number)
+- Leave management (annual, sick, other) with approval workflow
+- Document vault (securely stored, downloadable)
+- Leave balance tracking
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 🏦 Banking Integrations
+- **Bank of Cyprus PSD2** — OAuth2 account + transaction sync
+- **Eurobank PSD2** — OAuth2 account + transaction sync
+- **myPOS** — POS transaction retrieval
+- Automated sync scheduled at 07:00 and 14:00 daily (queue worker)
 
-## Code of Conduct
+### 📦 Inventory & Products
+- Product catalogue with categories
+- Stock management with movement history
+- Physical and service product types
+- VAT-aware pricing (net/gross)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 👥 CRM
+- Contact management (individuals & companies)
+- Call log / communication history
+- Follow-up reminders
+- Quote and invoice association
 
-## Security Vulnerabilities
+### 🛡️ Multi-tenant Architecture
+- Each business is an isolated **workspace**
+- All data is scoped by `workspace_id` — no cross-tenant data leakage
+- **Tier system** with feature gating:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Feature | Starter (€20/mo) | Professional (€50/mo) | Enterprise (€200/mo) |
+|---|---|---|---|
+| Max staff | 1 | 5 | Unlimited |
+| Max users | 1 | 3 | 99 |
+| API tokens | 0 | 2 | 999 |
+| Banking | Basic | Multi-currency | Multi-currency |
+| Audit logs | ❌ | ❌ | ✅ |
+
+### 🔐 Admin Console
+- Super-admin panel for managing all workspaces and users
+- Workspace activation/suspension
+- Manual subscription payment recording
+- Tier management
+
+---
+
+## Local Development Setup
+
+### Prerequisites
+- PHP 8.2+
+- Composer
+- Node.js 20+
+- MySQL 8+
+
+### Install
+
+```bash
+git clone https://github.com/ChrysostomosPogiatzis/app-invoice.git
+cd app-invoice
+
+# Backend
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan db:seed  # optional demo data
+
+# Frontend
+npm install
+npm run dev
+```
+
+### Environment
+
+Key `.env` values to configure:
+
+```env
+APP_URL=https://your-domain.com
+APP_ENV=production
+APP_DEBUG=false
+
+DB_DATABASE=your_db
+DB_USERNAME=your_user
+DB_PASSWORD=your_password
+
+# Banking (PSD2)
+BOC_CLIENT_ID=
+BOC_CLIENT_SECRET=
+EUROBANK_CLIENT_ID=
+EUROBANK_CLIENT_SECRET=
+
+# myPOS Billing
+MYPOS_CLIENT_ID=
+MYPOS_CLIENT_SECRET=
+MYPOS_PARTNER_CLIENT_ID=
+MYPOS_PARTNER_CLIENT_SECRET=
+
+# Email
+MAIL_MAILER=smtp
+MAIL_HOST=your-smtp-host
+MAIL_PORT=587
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_FROM_ADDRESS=noreply@yourdomain.com
+```
+
+---
+
+## Production Deployment
+
+```bash
+# Install dependencies
+composer install --no-dev --optimize-autoloader
+npm install && npm run build
+
+# Laravel optimizations
+php artisan migrate --force
+php artisan optimize   # caches config, routes, views
+
+# Queue worker (use supervisor in production)
+php artisan queue:work --sleep=3 --tries=3 --daemon
+```
+
+### Supervisor config (recommended)
+
+```ini
+[program:witbo-worker]
+command=php /var/www/html/artisan queue:work --sleep=3 --tries=3 --daemon
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/witbo-worker.err.log
+stdout_logfile=/var/log/witbo-worker.out.log
+```
+
+---
+
+## Security
+
+- All database queries scoped by `workspace_id` — IDOR-proof
+- CSRF protection enabled on all state-changing routes
+- Mass assignment protected via `$fillable` on all models
+- API tokens tier-locked and workspace-scoped
+- `APP_DEBUG=false` enforced in production
+- Dependencies audited: `composer audit` + `npm audit` → 0 vulnerabilities
+
+---
+
+## Running Tests
+
+```bash
+php artisan test
+```
+
+---
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Proprietary — © Witbo / Chrysostomos Pogiatzis. All rights reserved.
