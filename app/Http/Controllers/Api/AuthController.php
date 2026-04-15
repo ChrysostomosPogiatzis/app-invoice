@@ -11,7 +11,28 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     /**
-     * Authenticate a mobile device and return a secure API token.
+     * @OA\Post(
+     *     path="/api/login",
+     *     tags={"Auth"},
+     *     summary="Obtain a Bearer token",
+     *     description="Authenticates a user and returns a Sanctum API token. Rate-limited to 5 attempts per minute.",
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(required={"email","password","device_name"},
+     *             @OA\Property(property="email", type="string", format="email", example="admin@witbo.com.cy"),
+     *             @OA\Property(property="password", type="string", format="password", example="secret"),
+     *             @OA\Property(property="device_name", type="string", example="iPhone 15 Pro")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Authenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="token", type="string", example="1|abc123..."),
+     *             @OA\Property(property="user", type="object"),
+     *             @OA\Property(property="workspace", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=422, description="Invalid credentials", @OA\JsonContent(ref="#/components/schemas/ErrorValidation")),
+     *     @OA\Response(response=429, description="Too many attempts")
+     * )
      */
     public function login(Request $request)
     {

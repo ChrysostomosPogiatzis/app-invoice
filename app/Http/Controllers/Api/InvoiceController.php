@@ -16,6 +16,16 @@ class InvoiceController extends Controller
         return auth()->user()->currentWorkspaceRecord()->id;
     }
 
+    /**
+     * @OA\Get(path="/api/invoices", tags={"Invoices"}, summary="List invoices (paginated)",
+     *     security={{"BearerToken":{}}},
+     *     @OA\Response(response=200, description="Paginated invoice list",
+     *         @OA\JsonContent(@OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Invoice")),
+     *             @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta"))
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated", @OA\JsonContent(ref="#/components/schemas/Error"))
+     * )
+     */
     public function index()
     {
         return Invoice::with(['contact', 'items'])
@@ -23,6 +33,24 @@ class InvoiceController extends Controller
             ->paginate(30);
     }
 
+    /**
+     * @OA\Post(path="/api/invoices", tags={"Invoices"}, summary="Create a new invoice",
+     *     security={{"BearerToken":{}}},
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(required={"contact_id","date","items"},
+     *             @OA\Property(property="contact_id", type="integer", example=1),
+     *             @OA\Property(property="date", type="string", format="date", example="2026-04-15"),
+     *             @OA\Property(property="due_date", type="string", format="date", nullable=true),
+     *             @OA\Property(property="discount", type="number", format="float", nullable=true, example=0),
+     *             @OA\Property(property="notes", type="string", nullable=true),
+     *             @OA\Property(property="items", type="array", @OA\Items(ref="#/components/schemas/InvoiceItem"))
+     *         )
+     *     ),
+     *     @OA\Response(response=201, description="Invoice created", @OA\JsonContent(ref="#/components/schemas/Invoice")),
+     *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(ref="#/components/schemas/ErrorValidation")),
+     *     @OA\Response(response=401, description="Unauthenticated", @OA\JsonContent(ref="#/components/schemas/Error"))
+     * )
+     */
     public function store(Request $request)
     {
         $workspaceId = $this->getWorkspaceId();

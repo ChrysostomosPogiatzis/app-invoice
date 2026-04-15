@@ -1,0 +1,815 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Witbo Business API",
+    "version": "1.0.0",
+    "description": "REST API for the Witbo multi-tenant business management platform.\n\nAll endpoints except `POST /api/login` require a `Bearer` token obtained via the login endpoint.\n\nAll data is automatically scoped to the authenticated user's **active workspace**. You cannot access data from other workspaces.\n\n**Rate limits:**\n- `POST /api/login` → 5 req/min\n- `GET /api/invoices/{id}/download` → 10 req/min\n- All other authenticated endpoints → 60 req/min\n- Sync endpoints → 10 req/min",
+    "contact": { "email": "support@witbo.com.cy" },
+    "license": { "name": "Proprietary" }
+  },
+  "servers": [
+    { "url": "https://call.witbo.com.cy", "description": "Production" },
+    { "url": "http://localhost:8000", "description": "Local" }
+  ],
+  "tags": [
+    { "name": "Auth",      "description": "Authentication — obtain and revoke API tokens" },
+    { "name": "User",      "description": "Current user and workspace context" },
+    { "name": "Contacts",  "description": "CRM contact management" },
+    { "name": "Invoices",  "description": "Invoicing (create, list, download PDF)" },
+    { "name": "Quotes",    "description": "Quotations" },
+    { "name": "Expenses",  "description": "Expenses and payroll records" },
+    { "name": "Products",  "description": "Product catalogue and stock management" },
+    { "name": "Staff",     "description": "Staff members and leave management" },
+    { "name": "Reminders", "description": "Follow-up reminders" },
+    { "name": "Dashboard", "description": "Summary data and calendar" },
+    { "name": "Sync",      "description": "Bulk mobile data import (contacts and call logs)" },
+    { "name": "Banking",   "description": "Trigger bank connection synchronisation" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "token",
+        "description": "Sanctum personal access token from POST /api/login"
+      }
+    },
+    "schemas": {
+      "PaginationLinks": {
+        "type": "object",
+        "properties": {
+          "first": { "type": "string", "example": "https://call.witbo.com.cy/api/invoices?page=1" },
+          "last":  { "type": "string", "example": "https://call.witbo.com.cy/api/invoices?page=5" },
+          "prev":  { "type": "string", "nullable": true },
+          "next":  { "type": "string", "nullable": true }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "current_page": { "type": "integer", "example": 1 },
+          "last_page":    { "type": "integer", "example": 5 },
+          "per_page":     { "type": "integer", "example": 30 },
+          "total":        { "type": "integer", "example": 142 }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "Unauthenticated." }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "The email field is required." },
+          "errors": {
+            "type": "object",
+            "additionalProperties": { "type": "array", "items": { "type": "string" } },
+            "example": { "email": ["The email field is required."] }
+          }
+        }
+      },
+      "Contact": {
+        "type": "object",
+        "properties": {
+          "id":            { "type": "integer", "example": 1 },
+          "name":          { "type": "string",  "example": "Nikos Papadopoulos" },
+          "company_name":  { "type": "string",  "nullable": true, "example": "Acme Ltd" },
+          "email":         { "type": "string",  "format": "email", "nullable": true },
+          "mobile_number": { "type": "string",  "example": "+35799123456" },
+          "contact_type":  { "type": "string",  "enum": ["customer","supplier","lead"], "example": "customer" },
+          "vat_number":    { "type": "string",  "nullable": true },
+          "created_at":    { "type": "string",  "format": "date-time" }
+        }
+      },
+      "InvoiceItem": {
+        "type": "object",
+        "required": ["description","quantity","unit_price_net","vat_rate"],
+        "properties": {
+          "product_id":     { "type": "integer", "nullable": true },
+          "description":    { "type": "string",  "example": "Web design services" },
+          "quantity":       { "type": "number",  "format": "float", "example": 1 },
+          "unit_price_net": { "type": "number",  "format": "float", "example": 200.00 },
+          "vat_rate":       { "type": "number",  "format": "float", "example": 19 }
+        }
+      },
+      "Invoice": {
+        "type": "object",
+        "properties": {
+          "id":               { "type": "integer", "example": 42 },
+          "invoice_number":   { "type": "string",  "example": "INV-0042" },
+          "status":           { "type": "string",  "enum": ["draft","unpaid","partial","paid","void"], "example": "unpaid" },
+          "doc_type":         { "type": "string",  "enum": ["invoice","credit_note"], "example": "invoice" },
+          "date":             { "type": "string",  "format": "date", "example": "2026-04-15" },
+          "due_date":         { "type": "string",  "format": "date", "nullable": true },
+          "grand_total_gross":{ "type": "number",  "format": "float", "example": 238.00 },
+          "balance_due":      { "type": "number",  "format": "float", "example": 238.00 },
+          "amount_paid":      { "type": "number",  "format": "float", "example": 0 },
+          "discount":         { "type": "number",  "format": "float", "example": 0 },
+          "notes":            { "type": "string",  "nullable": true },
+          "contact":          { "$ref": "#/components/schemas/Contact" },
+          "items":            { "type": "array", "items": { "$ref": "#/components/schemas/InvoiceItem" } }
+        }
+      },
+      "Quote": {
+        "type": "object",
+        "properties": {
+          "id":             { "type": "integer", "example": 10 },
+          "quote_number":   { "type": "string",  "example": "Q-0010" },
+          "status":         { "type": "string",  "enum": ["draft","sent","accepted","rejected","expired"], "example": "draft" },
+          "date":           { "type": "string",  "format": "date" },
+          "valid_until":    { "type": "string",  "format": "date" },
+          "grand_total_gross":{ "type": "number","format": "float", "example": 595.00 },
+          "contact":        { "$ref": "#/components/schemas/Contact" },
+          "items":          { "type": "array", "items": { "$ref": "#/components/schemas/InvoiceItem" } }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id":               { "type": "integer", "example": 5 },
+          "name":             { "type": "string",  "example": "Office Chair" },
+          "sku":              { "type": "string",  "nullable": true, "example": "CHR-001" },
+          "product_type":     { "type": "string",  "enum": ["physical","service","digital"], "example": "physical" },
+          "unit_price_net":   { "type": "number",  "format": "float", "example": 150.00 },
+          "unit_price_gross": { "type": "number",  "format": "float", "example": 178.50 },
+          "vat_rate":         { "type": "number",  "format": "float", "example": 19 },
+          "current_stock":    { "type": "number",  "format": "float", "example": 12 },
+          "status":           { "type": "string",  "enum": ["active","inactive","discontinued"], "example": "active" }
+        }
+      },
+      "Expense": {
+        "type": "object",
+        "properties": {
+          "id":           { "type": "integer", "example": 10 },
+          "description":  { "type": "string",  "example": "Office supplies" },
+          "amount":       { "type": "number",  "format": "float", "example": 85.00 },
+          "expense_date": { "type": "string",  "format": "date", "example": "2026-04-01" },
+          "category":     { "type": "string",  "nullable": true, "example": "Office" },
+          "is_payroll":   { "type": "boolean", "example": false },
+          "net_payable":  { "type": "number",  "format": "float", "nullable": true },
+          "gross_salary": { "type": "number",  "format": "float", "nullable": true }
+        }
+      },
+      "StaffMember": {
+        "type": "object",
+        "properties": {
+          "id":           { "type": "integer", "example": 1 },
+          "name":         { "type": "string",  "example": "Maria Constantinou" },
+          "position":     { "type": "string",  "nullable": true, "example": "Cashier" },
+          "base_salary":  { "type": "number",  "format": "float", "example": 1200.00 },
+          "leave_balance":{ "type": "number",  "format": "float", "example": 18 },
+          "joining_date": { "type": "string",  "format": "date", "nullable": true }
+        }
+      },
+      "Reminder": {
+        "type": "object",
+        "properties": {
+          "id":         { "type": "integer", "example": 3 },
+          "title":      { "type": "string",  "example": "Follow up on quote" },
+          "remind_at":  { "type": "string",  "format": "date-time" },
+          "contact":    { "$ref": "#/components/schemas/Contact" }
+        }
+      }
+    }
+  },
+  "security": [{ "BearerToken": [] }],
+  "paths": {
+    "/api/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Obtain a Bearer token",
+        "description": "Rate-limited to 5 requests per minute.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["email","password","device_name"],
+                "type": "object",
+                "properties": {
+                  "email":       { "type": "string", "format": "email", "example": "admin@witbo.com.cy" },
+                  "password":    { "type": "string", "format": "password", "example": "secret" },
+                  "device_name": { "type": "string", "example": "iPhone 15 Pro" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token":     { "type": "string", "example": "1|abc123plainTextToken" },
+                    "user":      { "type": "object" },
+                    "workspace": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "422": { "description": "Wrong credentials", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationError" } } } },
+          "429": { "description": "Too many attempts" }
+        }
+      }
+    },
+    "/api/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Revoke current token (logout)",
+        "responses": {
+          "200": { "description": "Logged out", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string", "example": "Logged out successfully." } } } } } },
+          "401": { "description": "Unauthenticated" }
+        }
+      }
+    },
+    "/api/user": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get current user, workspaces and active workspace",
+        "responses": {
+          "200": {
+            "description": "User context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user":              { "type": "object" },
+                    "current_workspace": { "type": "object" },
+                    "workspaces":        { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contacts": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "List contacts (paginated)",
+        "parameters": [
+          { "name": "phone", "in": "query", "schema": { "type": "string" }, "description": "Filter by partial phone number match" }
+        ],
+        "responses": {
+          "200": { "description": "Paginated contacts", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Contact" } }, "meta": { "$ref": "#/components/schemas/PaginationMeta" } } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "Create a contact",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["name"],
+                "type": "object",
+                "properties": {
+                  "name":          { "type": "string",  "example": "Nikos Papadopoulos" },
+                  "company_name":  { "type": "string",  "nullable": true },
+                  "email":         { "type": "string",  "format": "email", "nullable": true },
+                  "mobile_number": { "type": "string",  "example": "+35799123456" },
+                  "contact_type":  { "type": "string",  "enum": ["customer","supplier","lead"], "example": "customer" },
+                  "vat_number":    { "type": "string",  "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Contact created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Contact" } } } },
+          "422": { "description": "Validation error" }
+        }
+      }
+    },
+    "/api/contacts/lookup": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Lookup contact by phone number",
+        "description": "Returns the contact matching the last 8 digits of the provided phone number, plus their full history (invoices, quotes, communications, reminders).",
+        "parameters": [
+          { "name": "phone", "in": "query", "required": true, "schema": { "type": "string" }, "example": "+35799123456" }
+        ],
+        "responses": {
+          "200": { "description": "Contact found with history" },
+          "404": { "description": "No matching contact" }
+        }
+      }
+    },
+    "/api/contacts/lookup-or-create": {
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "Lookup a contact by phone — create if not found",
+        "description": "Used by mobile app on incoming call. Returns existing or just-created contact.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["phone"],
+                "type": "object",
+                "properties": {
+                  "phone": { "type": "string", "example": "+35799123456" },
+                  "name":  { "type": "string", "nullable": true, "example": "Nikos Papadopoulos" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Contact with history (created or existing)" }
+        }
+      }
+    },
+    "/api/contacts/{id}": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Get a contact by ID",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Contact", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Contact" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "tags": ["Contacts"],
+        "summary": "Update a contact",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Contact" } } } },
+        "responses": { "200": { "description": "Updated contact" }, "404": { "description": "Not found" } }
+      },
+      "delete": {
+        "tags": ["Contacts"],
+        "summary": "Delete a contact",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "204": { "description": "Deleted" }, "404": { "description": "Not found" } }
+      }
+    },
+    "/api/contacts/{id}/history": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Get contact's full financial history",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "Contact with invoices, quotes, communications and statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "contact":    { "$ref": "#/components/schemas/Contact" },
+                    "statistics": { "type": "object", "properties": {
+                      "total_invoiced":  { "type": "number" },
+                      "total_paid":      { "type": "number" },
+                      "total_unpaid":    { "type": "number" },
+                      "invoice_count":   { "type": "integer" }
+                    }}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contacts/{id}/call-logs": {
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "Add a call log entry for a contact",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["call_type","call_date"],
+                "type": "object",
+                "properties": {
+                  "call_type":             { "type": "string", "enum": ["inbound","outbound","missed"] },
+                  "call_date":             { "type": "string", "format": "date-time" },
+                  "call_duration_seconds": { "type": "integer", "nullable": true },
+                  "call_notes":            { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Call log created" } }
+      }
+    },
+    "/api/contacts/{id}/reminders": {
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "Add a reminder for a contact",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["title","remind_at"],
+                "type": "object",
+                "properties": {
+                  "title":     { "type": "string" },
+                  "remind_at": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Reminder created" } }
+      }
+    },
+    "/api/invoices": {
+      "get": {
+        "tags": ["Invoices"],
+        "summary": "List invoices (paginated, 30 per page)",
+        "responses": {
+          "200": { "description": "Paginated invoices", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Invoice" } }, "meta": { "$ref": "#/components/schemas/PaginationMeta" } } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Invoices"],
+        "summary": "Create a new invoice",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["contact_id","date","items"],
+                "type": "object",
+                "properties": {
+                  "contact_id": { "type": "integer", "example": 1 },
+                  "date":       { "type": "string", "format": "date" },
+                  "due_date":   { "type": "string", "format": "date", "nullable": true },
+                  "discount":   { "type": "number", "format": "float", "nullable": true },
+                  "notes":      { "type": "string", "nullable": true },
+                  "items":      { "type": "array", "items": { "$ref": "#/components/schemas/InvoiceItem" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Invoice created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Invoice" } } } },
+          "422": { "description": "Validation error" }
+        }
+      }
+    },
+    "/api/invoices/{id}": {
+      "get": {
+        "tags": ["Invoices"],
+        "summary": "Get a single invoice with items, payments, attachments and VAT breakdown",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Invoice detail", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Invoice" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Invoices"],
+        "summary": "Delete an invoice",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "204": { "description": "Deleted" }, "404": { "description": "Not found" } }
+      }
+    },
+    "/api/invoices/{id}/download": {
+      "get": {
+        "tags": ["Invoices"],
+        "summary": "Download invoice as PDF",
+        "description": "Rate-limited to 10 requests per minute.",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "PDF file", "content": { "application/pdf": {} } },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/quotes": {
+      "get": {
+        "tags": ["Quotes"],
+        "summary": "List quotes (paginated)",
+        "responses": { "200": { "description": "Paginated quotes", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Quote" } } } } } } }
+      },
+      "post": {
+        "tags": ["Quotes"],
+        "summary": "Create a quote",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["contact_id","date","valid_until","items"],
+                "type": "object",
+                "properties": {
+                  "contact_id":  { "type": "integer" },
+                  "date":        { "type": "string", "format": "date" },
+                  "valid_until": { "type": "string", "format": "date" },
+                  "discount":    { "type": "number", "nullable": true },
+                  "notes":       { "type": "string", "nullable": true },
+                  "items":       { "type": "array", "items": { "$ref": "#/components/schemas/InvoiceItem" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Quote created" } }
+      }
+    },
+    "/api/quotes/{id}": {
+      "get":    { "tags": ["Quotes"], "summary": "Get a quote", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Quote" }, "404": { "description": "Not found" } } },
+      "put":    { "tags": ["Quotes"], "summary": "Update a quote (draft only)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Quote" } } } }, "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Quotes"], "summary": "Delete a quote", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "204": { "description": "Deleted" } } }
+    },
+    "/api/quotes/{id}/download": {
+      "get": {
+        "tags": ["Quotes"],
+        "summary": "Download quote as PDF",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "PDF file", "content": { "application/pdf": {} } } }
+      }
+    },
+    "/api/expenses": {
+      "get":  { "tags": ["Expenses"], "summary": "List expenses (paginated)", "responses": { "200": { "description": "Paginated expenses", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Expense" } } } } } } } },
+      "post": {
+        "tags": ["Expenses"],
+        "summary": "Create an expense",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["description","amount","expense_date"],
+                "type": "object",
+                "properties": {
+                  "description":  { "type": "string" },
+                  "amount":       { "type": "number", "format": "float" },
+                  "expense_date": { "type": "string", "format": "date" },
+                  "category":     { "type": "string", "nullable": true },
+                  "notes":        { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Expense created" } }
+      }
+    },
+    "/api/expenses/{id}": {
+      "get":    { "tags": ["Expenses"], "summary": "Get an expense",    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Expense" } } },
+      "put":    { "tags": ["Expenses"], "summary": "Update an expense", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Expenses"], "summary": "Delete an expense", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "204": { "description": "Deleted" } } }
+    },
+    "/api/products": {
+      "get":  { "tags": ["Products"], "summary": "List products (paginated)", "responses": { "200": { "description": "Paginated products", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Product" } } } } } } } },
+      "post": {
+        "tags": ["Products"],
+        "summary": "Create a product",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["name","unit_price_net","vat_rate"],
+                "type": "object",
+                "properties": {
+                  "name":           { "type": "string" },
+                  "sku":            { "type": "string", "nullable": true },
+                  "unit_price_net": { "type": "number", "format": "float" },
+                  "vat_rate":       { "type": "number", "format": "float", "example": 19 },
+                  "product_type":   { "type": "string", "enum": ["physical","service","digital"] },
+                  "current_stock":  { "type": "number", "nullable": true },
+                  "purchase_price": { "type": "number", "nullable": true },
+                  "status":         { "type": "string", "enum": ["active","inactive","discontinued"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Product created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Product" } } } } }
+      }
+    },
+    "/api/products/{id}": {
+      "get":    { "tags": ["Products"], "summary": "Get a product",    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Product", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Product" } } } } } },
+      "put":    { "tags": ["Products"], "summary": "Update a product", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Products"], "summary": "Delete a product", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "204": { "description": "Deleted" } } }
+    },
+    "/api/products/{id}/adjust-stock": {
+      "post": {
+        "tags": ["Products"],
+        "summary": "Adjust product stock level",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["quantity","direction","movement_type"],
+                "type": "object",
+                "properties": {
+                  "quantity":      { "type": "integer", "minimum": 1, "example": 5 },
+                  "direction":     { "type": "string", "enum": ["in","out"], "example": "in" },
+                  "movement_type": { "type": "string", "example": "purchase" },
+                  "notes":         { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Stock adjusted", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" }, "current_stock": { "type": "number" } } } } } },
+          "422": { "description": "Insufficient stock" }
+        }
+      }
+    },
+    "/api/staff": {
+      "get": {
+        "tags": ["Staff"],
+        "summary": "List all staff members",
+        "responses": { "200": { "description": "Staff list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/StaffMember" } } } } } }
+      }
+    },
+    "/api/staff/on-leave-today": {
+      "get": {
+        "tags": ["Staff"],
+        "summary": "Get staff members currently on approved leave",
+        "responses": { "200": { "description": "Staff on leave today" } }
+      }
+    },
+    "/api/staff/{id}": {
+      "get": {
+        "tags": ["Staff"],
+        "summary": "Get a staff member with leave requests",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Staff member" } }
+      }
+    },
+    "/api/staff/{id}/leave": {
+      "get": {
+        "tags": ["Staff"],
+        "summary": "Get leave requests for a staff member",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Leave requests" } }
+      },
+      "post": {
+        "tags": ["Staff"],
+        "summary": "Submit a leave request for a staff member",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["start_date","end_date","type"],
+                "type": "object",
+                "properties": {
+                  "start_date": { "type": "string", "format": "date" },
+                  "end_date":   { "type": "string", "format": "date" },
+                  "type":       { "type": "string", "example": "annual" },
+                  "reason":     { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Leave request submitted" } }
+      }
+    },
+    "/api/reminders": {
+      "get":  { "tags": ["Reminders"], "summary": "List reminders", "responses": { "200": { "description": "Reminders list" } } },
+      "post": {
+        "tags": ["Reminders"],
+        "summary": "Create a reminder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["contact_id","title","remind_at"],
+                "type": "object",
+                "properties": {
+                  "contact_id": { "type": "integer" },
+                  "title":      { "type": "string" },
+                  "remind_at":  { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Reminder created" } }
+      }
+    },
+    "/api/reminders/{id}": {
+      "get":    { "tags": ["Reminders"], "summary": "Get a reminder",    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Reminder" } } },
+      "put":    { "tags": ["Reminders"], "summary": "Update a reminder", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Reminders"], "summary": "Delete a reminder", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "204": { "description": "Deleted" } } }
+    },
+    "/api/dashboard/summary": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get financial summary (revenue, expenses, overdues, etc.)",
+        "responses": { "200": { "description": "Dashboard summary data" } }
+      }
+    },
+    "/api/dashboard/calendar": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get upcoming events (invoices due, reminders, leave)",
+        "responses": { "200": { "description": "Calendar events array" } }
+      }
+    },
+    "/api/sync/contacts": {
+      "post": {
+        "tags": ["Sync"],
+        "summary": "Bulk import phone contacts from a mobile device",
+        "description": "Upserts contacts by phone number match (last 8 digits). Skips soft-deleted contacts. Rate-limited to 10 req/min.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["contacts"],
+                "type": "object",
+                "properties": {
+                  "contacts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["name","phone"],
+                      "properties": {
+                        "name":  { "type": "string" },
+                        "phone": { "type": "string" },
+                        "email": { "type": "string", "nullable": true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Sync result", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" }, "imported": { "type": "integer" }, "updated": { "type": "integer" } } } } } },
+          "422": { "description": "Validation error" }
+        }
+      }
+    },
+    "/api/sync/logs": {
+      "post": {
+        "tags": ["Sync"],
+        "summary": "Bulk import call logs from a mobile device",
+        "description": "Deduplicates by phone + date + type. Supports Unix timestamps (ms and s). Accepts type aliases: `incoming` → `inbound`, `outgoing` → `outbound`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["logs"],
+                "type": "object",
+                "properties": {
+                  "logs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["phone","date"],
+                      "properties": {
+                        "phone":    { "type": "string" },
+                        "type":     { "type": "string", "enum": ["inbound","outbound","missed","incoming","outgoing"], "nullable": true },
+                        "duration": { "type": "integer", "nullable": true, "description": "Seconds" },
+                        "date":     { "type": "string",  "description": "ISO 8601 or Unix timestamp (ms or s)" },
+                        "notes":    { "type": "string",  "nullable": true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Sync result", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" }, "processed": { "type": "integer" }, "skipped": { "type": "integer" } } } } } }
+        }
+      }
+    },
+    "/api/banking/sync": {
+      "post": {
+        "tags": ["Banking"],
+        "summary": "Trigger a manual bank synchronisation for all active connections",
+        "description": "Rate-limited to 5 req/min. Returns immediately — sync runs asynchronously via queue.",
+        "responses": {
+          "200": { "description": "Sync queued", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string", "example": "Sync queued." } } } } } }
+        }
+      }
+    }
+  }
+}
