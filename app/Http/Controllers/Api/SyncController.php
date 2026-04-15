@@ -31,12 +31,23 @@ class SyncController extends Controller
             ]);
 
             $workspaceId = $this->getWorkspaceId();
+            
+            // Optimization: Pre-fetch all contacts in one go
+            $existingContacts = Contact::withTrashed()
+                ->where('workspace_id', $workspaceId)
+                ->get()
+                ->mapWithKeys(function ($c) {
+                    $norm = preg_replace('/[^0-9]/', '', $c->mobile_number);
+                    return [substr($norm, -8) => $c];
+                });
+
             $imported = 0;
             $updated = 0;
 
+            DB::beginTransaction();
+
             foreach ($request->contacts as $contactData) {
                 if (empty($contactData['phone']) || empty($contactData['name'])) {
-                    $updated++; // Tracking skipped as updated for now or could just continue
                     continue;
                 }
 
@@ -44,13 +55,10 @@ class SyncController extends Controller
                 if (strlen($normalizedPhone) < 7) continue;
 
                 $suffix = substr($normalizedPhone, -8);
-                $contact = Contact::withTrashed()->where('workspace_id', $workspaceId)
-                    ->whereRaw("REPLACE(REPLACE(mobile_number, ' ', ''), '+', '') LIKE ?", ["%{$suffix}"])
-                    ->first();
+                $contact = $existingContacts[$suffix] ?? null;
 
                 if ($contact) {
                     if ($contact->trashed()) {
-                         // This contact was deleted by the user - EXCLUDE it from sync!
                          continue;
                     }
                     if (str_contains($contact->name, 'Imported Contact') || str_contains($contact->name, 'Unknown Caller') || empty($contact->name)) {
@@ -71,6 +79,8 @@ class SyncController extends Controller
                     $imported++;
                 }
             }
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -101,8 +111,20 @@ class SyncController extends Controller
             ]);
 
             $workspaceId = $this->getWorkspaceId();
+
+            // Optimization: Pre-fetch all contacts in one go
+            $existingContacts = Contact::withTrashed()
+                ->where('workspace_id', $workspaceId)
+                ->get()
+                ->mapWithKeys(function ($c) {
+                    $norm = preg_replace('/[^0-9]/', '', $c->mobile_number);
+                    return [substr($norm, -8) => $c];
+                });
+
             $processed = 0;
             $skipped = 0;
+
+            DB::beginTransaction();
 
             $validTypes = ['inbound', 'outbound', 'missed'];
             foreach ($request->logs as $index => $logData) {
@@ -125,11 +147,8 @@ class SyncController extends Controller
                 $logDate = null;
                 try {
                     $inputDate = $logData['date'];
-                    \Log::info("Sync Call Log Raw Date: " . $inputDate); // Debug
-
                     if (is_numeric($inputDate)) {
-                        // Handle Unix Timestamps (Seconds vs Milliseconds)
-                        if ($inputDate > 10000000000) { // Likely milliseconds
+                        if ($inputDate > 10000000000) { 
                             $inputDate = (int) ($inputDate / 1000);
                         }
                         $logDate = Carbon::createFromTimestamp($inputDate);
@@ -147,17 +166,16 @@ class SyncController extends Controller
                 }
 
                 $normalizedPhone = preg_replace('/[^0-9]/', '', $logData['phone']);
-                if (strlen($normalizedPhone) < 7) continue; // Skip very short numbers
+                if (strlen($normalizedPhone) < 7) {
+                    $skipped++;
+                    continue;
+                }
 
-                $suffix = substr($normalizedPhone, -8); // Match last 8 digits
-
-                $contact = Contact::withTrashed()->where('workspace_id', $workspaceId)
-                    ->whereRaw("REPLACE(REPLACE(mobile_number, ' ', ''), '+', '') LIKE ?", ["%{$suffix}"])
-                    ->first();
+                $suffix = substr($normalizedPhone, -8); 
+                $contact = $existingContacts[$suffix] ?? null;
 
                 if ($contact) {
                     if ($contact->trashed()) {
-                        // User deleted this contact - SKIP all its logs
                         continue;
                     }
                 } else {
@@ -167,6 +185,8 @@ class SyncController extends Controller
                         'mobile_number' => $logData['phone'],
                         'contact_type' => 'customer'
                     ]);
+                    // Update cache to reflect newly created contact in current batch
+                    $existingContacts[$suffix] = $contact;
                 }
 
                 $exists = CallLog::where('contact_id', $contact->id)
@@ -185,6 +205,8 @@ class SyncController extends Controller
                     $processed++;
                 }
             }
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
