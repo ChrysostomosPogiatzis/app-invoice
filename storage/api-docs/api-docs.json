@@ -862,7 +862,7 @@
                 "tags": [
                     "Contacts"
                 ],
-                "summary": "Log a call",
+                "summary": "Log a call (Legacy: requires contact ID)",
                 "parameters": [
                     {
                         "name": "id",
@@ -880,8 +880,7 @@
                             "schema": {
                                 "type": "object",
                                 "required": [
-                                    "call_type",
-                                    "call_date"
+                                    "call_type"
                                 ],
                                 "properties": {
                                     "call_type": {
@@ -889,7 +888,9 @@
                                         "enum": [
                                             "inbound",
                                             "outbound",
-                                            "missed"
+                                            "missed",
+                                            "incoming",
+                                            "outgoing"
                                         ]
                                     },
                                     "call_date": {
@@ -2353,6 +2354,66 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/sync/call-event": {
+            "post": {
+                "tags": [
+                    "Sync"
+                ],
+                "summary": "Real-time sync for single call event",
+                "description": "Automatically identifies/creates contact by phone and logs the call. Ideal for immediate per-call mobile sync.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "phone"
+                                ],
+                                "properties": {
+                                    "phone": {
+                                        "type": "string"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "inbound",
+                                            "outbound",
+                                            "missed",
+                                            "incoming",
+                                            "outgoing"
+                                        ]
+                                    },
+                                    "duration": {
+                                        "type": "integer"
+                                    },
+                                    "date": {
+                                        "type": "string",
+                                        "description": "UNIX or ISO"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             }
