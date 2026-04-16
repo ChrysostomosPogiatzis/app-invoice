@@ -164,7 +164,7 @@ const getCategoryStyle = (cat: string) => {
                             </th>
                             <th @click="triggerSort('amount')" class="px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:bg-slate-100 transition-colors select-none">
                                 <span class="flex items-center justify-end gap-1">
-                                    Base (Gross)
+                                    Net Amount
                                     <span class="text-slate-400 text-[10px]">{{ sortIcon('amount') }}</span>
                                 </span>
                             </th>
@@ -201,7 +201,7 @@ const getCategoryStyle = (cat: string) => {
                             <td class="px-6 py-4 text-right tabular-nums">
                                 <div class="font-bold text-slate-900">€{{ Number(exp.amount).toFixed(2) }}</div>
                                 <div v-if="exp.is_payroll" class="text-[9px] text-emerald-500 font-bold uppercase">Pay Out: €{{ Number(exp.net_payable).toFixed(2) }}</div>
-                                <div v-else class="text-[9px] text-slate-400 uppercase tracking-tighter">Pre-VAT</div>
+                                <div v-else class="text-[9px] text-slate-400 uppercase tracking-tighter">ex. VAT</div>
                             </td>
                             <td class="px-6 py-4 text-right tabular-nums">
                                 <span v-if="exp.is_payroll" class="text-indigo-400 text-xs font-medium">

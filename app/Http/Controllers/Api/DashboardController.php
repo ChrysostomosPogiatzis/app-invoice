@@ -20,16 +20,26 @@ class DashboardController extends Controller
     // GET /api/dashboard/calendar
     // Backward-compatible: existing fields untouched, leave events added.
     // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * @OA\Get(path="/api/dashboard/calendar", tags={"Dashboard"}, summary="Get calendar events",
+     *     description="Returns all business events (invoices, quotes, reminders, calls, expenses, leaves) within a date range.",
+     *     security={{"BearerToken":{}}},
+     *     @OA\Parameter(name="start", in="query", description="Start date (YYYY-MM-DD)", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="end", in="query", description="End date (YYYY-MM-DD)", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(response=200, description="Calendar events", @OA\JsonContent(ref="#/components/schemas/DashboardCalendarResponse")),
+     *     @OA\Response(response=401, description="Unauthenticated", @OA\JsonContent(ref="#/components/schemas/Error"))
+     * )
+     */
     public function calendar(Request $request)
     {
         $workspaceId = $request->user()->currentWorkspaceRecord()?->id
             ?? $request->user()->workspaces()->first()->id;
 
         $start = $request->has('start')
-            ? Carbon::parse($request->start)
+            ? Carbon::parse($request->start)->startOfDay()
             : now()->subDays(15)->startOfDay();
         $end = $request->has('end')
-            ? Carbon::parse($request->end)
+            ? Carbon::parse($request->end)->endOfDay()
             : now()->addDays(15)->endOfDay();
 
         // ── Invoices ────────────────────────────────────────────────────────
@@ -238,6 +248,14 @@ class DashboardController extends Controller
     // GET /api/dashboard/summary
     // Backward-compatible: `date`, `events`, `stats` keys untouched.
     // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * @OA\Get(path="/api/dashboard/summary", tags={"Dashboard"}, summary="Get KPI summary",
+     *     description="Returns current financial KPIs, today's events, overdue items, and staff on leave.",
+     *     security={{"BearerToken":{}}},
+     *     @OA\Response(response=200, description="Dashboard summary", @OA\JsonContent(ref="#/components/schemas/DashboardSummaryResponse")),
+     *     @OA\Response(response=401, description="Unauthenticated", @OA\JsonContent(ref="#/components/schemas/Error"))
+     * )
+     */
     public function summary(Request $request)
     {
         $workspaceId = $request->user()->currentWorkspaceRecord()?->id

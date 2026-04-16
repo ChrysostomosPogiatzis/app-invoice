@@ -54,18 +54,24 @@ class ContactController extends Controller
             ->whereRaw("REPLACE(REPLACE(mobile_number, ' ', ''), '+', '') LIKE ?", ["%{$suffix}"])
             ->first();
 
+        $wasCreated = false;
+
         if (!$contact) {
             $contact = Contact::create([
                 'workspace_id' => $workspaceId,
-                'name' => $request->name ?? "Unknown Caller ({$request->phone})",
+                'name'         => $request->name ?? "Unknown Caller ({$request->phone})",
                 'mobile_number' => $request->phone,
-                'contact_type' => 'customer'
+                'contact_type' => 'customer',
             ]);
+            $wasCreated = true;
         }
 
         $contact->load(['invoices', 'quotes', 'reminders', 'communications']);
 
-        return response()->json($contact);
+        return response()->json([
+            'contact' => $contact,
+            'created' => $wasCreated,   // true = newly auto-created from phone only
+        ]);
     }
 
     public function history($id)
@@ -89,15 +95,37 @@ class ContactController extends Controller
         $contact = Contact::where('workspace_id', $this->getWorkspaceId())->findOrFail($id);
         
         $validated = $request->validate([
-            'call_type' => 'required|string|in:incoming,outgoing,missed',
+            'call_type' => 'required|string',
             'call_duration_seconds' => 'nullable|integer',
             'call_notes' => 'nullable|string',
-            'call_date' => 'nullable|date',
+            'call_date' => 'nullable',
         ]);
 
-        $log = $contact->communications()->create(array_merge($validated, [
-            'call_date' => $validated['call_date'] ?? now()
-        ]));
+        $type = strtolower($validated['call_type']);
+        if ($type === 'incoming') $type = 'inbound';
+        if ($type === 'outgoing') $type = 'outbound';
+
+        $logDate = now();
+        if (!empty($validated['call_date'])) {
+            try {
+                $inputDate = $validated['call_date'];
+                if (is_numeric($inputDate)) {
+                    if ($inputDate > 10000000000) $inputDate = (int) ($inputDate / 1000);
+                    $logDate = \Illuminate\Support\Carbon::createFromTimestamp($inputDate);
+                } else {
+                    $logDate = \Illuminate\Support\Carbon::parse($inputDate);
+                }
+            } catch (\Exception $e) {
+                $logDate = now();
+            }
+        }
+
+        $log = $contact->communications()->create([
+            'call_type' => $type,
+            'call_duration_seconds' => $validated['call_duration_seconds'] ?? 0,
+            'call_notes' => $validated['call_notes'] ?? null,
+            'call_date' => $logDate->toDateTimeString(),
+        ]);
 
         return response()->json($log, 201);
     }

@@ -90,7 +90,7 @@ class InvoiceController extends Controller
 
     public function download($id)
     {
-        $invoice = Invoice::with(['contact', 'items', 'workspace'])->where('workspace_id', $this->getWorkspaceId())->findOrFail($id);
+        $invoice = Invoice::with(['contact', 'items', 'workspace', 'payments'])->where('workspace_id', $this->getWorkspaceId())->findOrFail($id);
         $amountInWords = $this->numberToWords($invoice->grand_total_gross);
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.invoice', compact('invoice', 'amountInWords'));
         return $pdf->download("Invoice-{$invoice->invoice_number}.pdf");

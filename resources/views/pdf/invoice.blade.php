@@ -259,7 +259,7 @@
         </tbody>
     </table>
 
-    @if($invoice->payments->count())
+    @if(!($isQuote ?? false) && $invoice->payments && $invoice->payments->count())
         <div class="settlement-block">
             <div class="settlement-title">Settlement Log</div>
             <table class="settlement-table">

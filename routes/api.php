@@ -59,6 +59,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('invoices', InvoiceController::class);
         Route::get('quotes/{id}/download', [QuoteController::class, 'download'])->middleware('throttle:10,1');
         Route::apiResource('quotes', QuoteController::class);
+        Route::get('expenses/{id}/receipt', [ExpenseController::class, 'downloadReceipt'])->name('expenses.receipt.download');
         Route::apiResource('expenses', ExpenseController::class);
         Route::apiResource('reminders', ReminderController::class);
     });
@@ -73,6 +74,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::group(['prefix' => 'sync', 'as' => 'sync.', 'middleware' => 'throttle:10,1'], function () {
         Route::post('/contacts', [App\Http\Controllers\Api\SyncController::class, 'syncContacts'])->name('contacts');
         Route::post('/logs', [App\Http\Controllers\Api\SyncController::class, 'syncCallLogs'])->name('logs');
+        Route::post('/call-event', [App\Http\Controllers\Api\SyncController::class, 'syncCallEvent'])->name('call-event');
     });
 
     // Banking / External Sync
